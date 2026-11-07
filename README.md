@@ -13,7 +13,10 @@
 - Create, rename, and delete playlists, and add tracks to a list you own. Smart and auto-imported lists stay read-only.
 - Download tracks and albums onto the phone and play them without the server. Offline mode is a Settings switch. A finished download is used instead of streaming.
 - Scrobble on play and again later in the track. Offline scrobbles are sent once the server is reachable.
-- Lyrics from the now playing screen. Synced lines follow playback and a tap seeks. Plain lyrics stay as static text. Lyrics for a downloaded track are kept on the phone.
+- Lyrics from the now playing screen. Navidrome first, then LRCLIB, then lyrics.ovh. Synced lines follow playback and a tap seeks. Plain lyrics stay as static text, with the track slider beside play. A Tango with no lyrics is searched on LRCLIB by the title plus the word Tango, and only the plain text is kept. Lyrics for a downloaded track are kept on the phone.
+- A file named like `Halo-music.mp3` is the music-only copy of `Halo.mp3`. Album lists and search hide it, and also hide a `-vocals.mp3` file, which is unused. Now playing and the lyrics page show a microphone when the music-only file exists. The mic swaps the audio. The cover and the lyrics stay on the vocal track.
+- Rate the current track or an album from 0 to 5. Start radio plays similar songs after the current track. The server does not save that list.
+- Karaoke is a Settings switch. The phone serves a page on the local Wi-Fi and shows the address. A TV or PC browser on that network shows the cover, title, artist, and lyrics. A cyan border and a cast icon mean it is on. The browser does not control playback. A remote control from that page is still to come.
 - English and Italian. Settings → Language defaults to Automatic, which follows the phone language.
 
 # Build
