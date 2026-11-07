@@ -97,6 +97,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get lyrics => 'Lyrics';
 
   @override
+  String get musicOnly => 'Music only';
+
+  @override
+  String get withVocals => 'With vocals';
+
+  @override
   String get playQueue => 'Play queue';
 
   @override

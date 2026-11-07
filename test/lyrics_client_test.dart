@@ -172,12 +172,194 @@ void main() {
       expect(match.plain, 'first\nsecond');
     },
   );
+
+  test(
+    'a tango with no lyrics searches LRCLIB by title for plain text',
+    () async {
+      final httpClient = _TangoClient(plain: 'quién al oír');
+      final client = LyricsClient(httpClient: httpClient);
+      addTearDown(client.close);
+      final match = await client.find(
+        const Song(
+          id: 'vals-tango',
+          title: 'El vals soñador',
+          artist: 'Miguel Caló',
+          album: 'Tango Popular',
+          duration: 207,
+          genre: 'TANGO',
+        ),
+      );
+      expect(match.source, 'LRCLIB');
+      expect(match.synced, isFalse);
+      expect(match.lrc, isEmpty);
+      expect(match.plain, 'quién al oír');
+      final titleOnly = httpClient.urls.where(
+        (uri) =>
+            uri.path == '/api/search' &&
+            uri.queryParameters.length == 1 &&
+            uri.queryParameters['q'] == 'El vals soñador Tango',
+      );
+      expect(titleOnly, hasLength(1));
+    },
+  );
+
+  test('an unaccented title matches the accented LRCLIB name', () {
+    final picked = pickPlainTitle(
+      title: 'Tus Besos Fueron Mios',
+      candidates: const [
+        LyricCandidate(
+          trackName: 'Tus Besos Fueron Míos',
+          artistName: 'Alfredo De Angelis',
+          duration: 174,
+          instrumental: false,
+          plainLyrics: 'Hoy pasas a mi lado',
+        ),
+      ],
+    );
+    expect(picked?.plainLyrics, 'Hoy pasas a mi lado');
+  });
+
+  test('Tus Besos Fueron Mios matches the accented plain lyric', () async {
+    final httpClient = _MiosClient();
+    final client = LyricsClient(httpClient: httpClient);
+    addTearDown(client.close);
+    final match = await client.find(
+      const Song(
+        id: 'tus-besos',
+        title: 'Tus Besos Fueron Mios',
+        artist: 'Alfredo De Angelis',
+        album: 'Yo Soy El Tango',
+        duration: 174,
+        genre: 'Tango',
+      ),
+    );
+    expect(match.synced, isFalse);
+    expect(match.lrc, isEmpty);
+    expect(match.plain, startsWith('Hoy pasas a mi lado'));
+  });
+
+  test('synced-only tango results are not used', () async {
+    final client = LyricsClient(httpClient: _TangoClient());
+    addTearDown(client.close);
+    final match = await client.find(
+      const Song(
+        id: 'vals-synced-only',
+        title: 'El vals soñador',
+        artist: 'Miguel Caló',
+        album: 'Tango Popular',
+        duration: 207,
+        genre: 'tango',
+      ),
+    );
+    expect(match.found, isFalse);
+  });
+
+  test('another genre does not add Tango to the title search', () async {
+    final httpClient = _TangoClient(plain: 'should not be used');
+    final client = LyricsClient(httpClient: httpClient);
+    addTearDown(client.close);
+    final match = await client.find(
+      const Song(
+        id: 'halo-jazz',
+        title: 'Halo',
+        artist: 'Porcupine Tree',
+        album: 'Deadwing',
+        duration: 279,
+        genre: 'Rock',
+      ),
+    );
+    expect(match.found, isFalse);
+    expect(
+      httpClient.urls.where(
+        (uri) => uri.queryParameters['q']?.endsWith(' Tango') ?? false,
+      ),
+      isEmpty,
+    );
+  });
 }
 
 class _ThrowingClient extends http.BaseClient {
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) {
     throw StateError('should not request ${request.url}');
+  }
+}
+
+class _TangoClient extends http.BaseClient {
+  _TangoClient({this.plain});
+
+  final String? plain;
+  final urls = <Uri>[];
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final uri = request.url;
+    urls.add(uri);
+    final titleOnly =
+        uri.path == '/api/search' &&
+        uri.queryParameters.length == 1 &&
+        uri.queryParameters.containsKey('q');
+    if (!titleOnly) {
+      return http.StreamedResponse(
+        Stream<List<int>>.value(utf8.encode('{}')),
+        404,
+      );
+    }
+    final query = uri.queryParameters['q'] ?? '';
+    const suffix = ' Tango';
+    final trackName = query.endsWith(suffix)
+        ? query.substring(0, query.length - suffix.length)
+        : query;
+    final record = <String, Object?>{
+      'trackName': trackName,
+      'artistName': 'Orquesta',
+      'duration': 180,
+      'instrumental': false,
+      'syncedLyrics': '[00:01.00]timed line',
+    };
+    final text = plain;
+    if (text != null) record['plainLyrics'] = text;
+    return http.StreamedResponse(
+      Stream<List<int>>.value(utf8.encode(jsonEncode([record]))),
+      200,
+      headers: const {'content-type': 'application/json'},
+    );
+  }
+}
+
+class _MiosClient extends http.BaseClient {
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final query = request.url.queryParameters['q'];
+    if (query == 'Tus Besos Fueron Mios Tango') {
+      final body = jsonEncode([
+        {
+          'trackName': 'Tus Besos Fueron Míos',
+          'artistName': 'Alfredo De Angelis',
+          'duration': 174,
+          'instrumental': false,
+          'plainLyrics': 'Hoy pasas a mi lado con fría indiferencia;',
+          'syncedLyrics': null,
+        },
+        {
+          'trackName': 'Tus besos fueron míos',
+          'artistName': 'Francisco Canaro',
+          'duration': 162,
+          'instrumental': true,
+          'plainLyrics': null,
+          'syncedLyrics': null,
+        },
+      ]);
+      return http.StreamedResponse(
+        Stream<List<int>>.value(utf8.encode(body)),
+        200,
+        headers: const {'content-type': 'application/json; charset=utf-8'},
+      );
+    }
+    return http.StreamedResponse(
+      Stream<List<int>>.value(utf8.encode('{}')),
+      404,
+    );
   }
 }
 

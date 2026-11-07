@@ -113,8 +113,10 @@ class LyricsClient {
       external = await _search(song);
     } on LyricsException {
       final plain = _serverPlain(server);
-      if (plain == null) rethrow;
-      return _remember(song.id, plain);
+      if (plain != null) return _remember(song.id, plain);
+      final tango = await _tangoPlain(song);
+      if (tango != null) return _remember(song.id, tango);
+      rethrow;
     }
     if (external.synced) {
       _cache[song.id] = external;
@@ -122,6 +124,10 @@ class LyricsClient {
     }
     final plain = _serverPlain(server);
     if (plain != null) return _remember(song.id, plain);
+    if (!external.found) {
+      final tango = await _tangoPlain(song);
+      if (tango != null) return _remember(song.id, tango);
+    }
     _cache[song.id] = external;
     return external;
   }
@@ -183,6 +189,39 @@ class LyricsClient {
     if (response.statusCode != 200) return null;
     final record = _record(response.body);
     return record;
+  }
+
+  Future<LyricMatch?> _tangoPlain(Song song) async {
+    if (song.genre?.trim().toLowerCase() != 'tango') return null;
+    final title = song.title.trim();
+    final query = tangoTitleQuery(title);
+    if (query == null) return null;
+    final picked = pickPlainTitle(
+      title: title,
+      candidates: await _lrclibSearchTitle(query),
+    );
+    final plain = picked?.plainLyrics?.trim() ?? '';
+    if (plain.isEmpty) return null;
+    return LyricMatch(
+      lrc: '',
+      plain: plain,
+      source: 'LRCLIB',
+      synced: false,
+      instrumental: false,
+    );
+  }
+
+  Future<List<LyricCandidate>> _lrclibSearchTitle(String title) async {
+    final response = await _send(
+      Uri.https('lrclib.net', '/api/search', {'q': title}),
+    );
+    if (response == null || response.statusCode != 200) return const [];
+    final decoded = _decode(response.body);
+    if (decoded is! List) return const [];
+    return [
+      for (final item in decoded)
+        if (item is Map) _candidate(Map<String, dynamic>.from(item)),
+    ].whereType<LyricCandidate>().toList();
   }
 
   Future<List<LyricCandidate>> _lrclibSearch(_LyricQuery query) async {
@@ -434,6 +473,33 @@ String _stripTags(String value) {
   return text.replaceAll(RegExp(r'\s+'), ' ').trim();
 }
 
+String? tangoTitleQuery(String title) {
+  final trimmed = title.trim();
+  if (trimmed.isEmpty) return null;
+  if (RegExp(r'\btango$', caseSensitive: false).hasMatch(trimmed)) {
+    return trimmed;
+  }
+  return '$trimmed Tango';
+}
+
+LyricCandidate? pickPlainTitle({
+  required String title,
+  required List<LyricCandidate> candidates,
+}) {
+  LyricCandidate? best;
+  var bestScore = 0;
+  for (final candidate in candidates) {
+    final plain = candidate.plainLyrics?.trim() ?? '';
+    if (plain.isEmpty) continue;
+    final score = _textScore(title, candidate.trackName);
+    if (score > bestScore) {
+      best = candidate;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
 LyricCandidate? pickLyric({
   required String title,
   required String artist,
@@ -505,8 +571,42 @@ int _textScore(String left, String right) {
 }
 
 String _norm(String value) {
-  return value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
+  final folded = value.toLowerCase().replaceAllMapped(
+    RegExp(r'[àáâãäåèéêëìíîïòóôõöùúûüýÿñç]'),
+    (match) => _foldedAccent[match.group(0)] ?? '',
+  );
+  return folded.replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
 }
+
+const _foldedAccent = {
+  'à': 'a',
+  'á': 'a',
+  'â': 'a',
+  'ã': 'a',
+  'ä': 'a',
+  'å': 'a',
+  'è': 'e',
+  'é': 'e',
+  'ê': 'e',
+  'ë': 'e',
+  'ì': 'i',
+  'í': 'i',
+  'î': 'i',
+  'ï': 'i',
+  'ò': 'o',
+  'ó': 'o',
+  'ô': 'o',
+  'õ': 'o',
+  'ö': 'o',
+  'ù': 'u',
+  'ú': 'u',
+  'û': 'u',
+  'ü': 'u',
+  'ý': 'y',
+  'ÿ': 'y',
+  'ñ': 'n',
+  'ç': 'c',
+};
 
 String plainToLrc(String plain, int durationSeconds) {
   final lines = plain

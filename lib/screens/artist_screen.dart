@@ -8,6 +8,7 @@ import '../state/player_controller.dart';
 import '../state/session_controller.dart';
 import '../theme/app_colors.dart';
 import '../util/format.dart';
+import '../util/music_only.dart';
 import '../widgets/album_card.dart';
 import '../widgets/choice_menu.dart';
 import '../widgets/message_page.dart';
@@ -94,9 +95,8 @@ class _ArtistScreenState extends State<ArtistScreen> {
     final songs = await _collectTracks();
     if (!mounted || songs == null) return;
     if (songs.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.artistNoTracks)),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(context.l10n.artistNoTracks)));
       return;
     }
     final artist = _artist;
@@ -123,7 +123,8 @@ class _ArtistScreenState extends State<ArtistScreen> {
     final client = context.read<SessionController>().client;
     if (artist == null || client == null) return null;
     final cached = artist.albums.every(
-      (album) => album.songs.isNotEmpty && album.songs.length >= album.songCount,
+      (album) =>
+          album.songs.isNotEmpty && album.songs.length >= album.songCount,
     );
     if (cached) {
       return [for (final album in artist.albums) ...album.songs];
@@ -164,7 +165,7 @@ class _ArtistScreenState extends State<ArtistScreen> {
           slice.map((album) => client.getAlbum(album.id)),
         );
         for (final album in loaded) {
-          songs.addAll(album.songs);
+          songs.addAll(withoutMusicOnly(album.songs));
         }
       }
       if (mounted) Navigator.of(context).pop();
@@ -208,67 +209,67 @@ class _ArtistScreenState extends State<ArtistScreen> {
 
   Widget _body(Artist? artist) {
     return _loading && artist == null
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null && artist == null
-          ? MessagePage(
-              icon: Icons.cloud_off_rounded,
-              title: context.l10n.artistUnavailable,
-              detail: _error,
-              onRetry: _load,
-            )
-          : LayoutBuilder(
-              builder: (context, constraints) {
-                final albums = artist?.albums ?? const <Album>[];
-                final cross = albumCrossCount(constraints.maxWidth);
-                return RefreshIndicator(
-                  onRefresh: _load,
-                  child: CustomScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    slivers: [
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-                          child: Text(
-                            formatAlbumCount(context.l10n, albums.length),
-                            style: const TextStyle(color: AppColors.muted),
+        ? const Center(child: CircularProgressIndicator())
+        : _error != null && artist == null
+        ? MessagePage(
+            icon: Icons.cloud_off_rounded,
+            title: context.l10n.artistUnavailable,
+            detail: _error,
+            onRetry: _load,
+          )
+        : LayoutBuilder(
+            builder: (context, constraints) {
+              final albums = artist?.albums ?? const <Album>[];
+              final cross = albumCrossCount(constraints.maxWidth);
+              return RefreshIndicator(
+                onRefresh: _load,
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                        child: Text(
+                          formatAlbumCount(context.l10n, albums.length),
+                          style: const TextStyle(color: AppColors.muted),
+                        ),
+                      ),
+                    ),
+                    if (albums.isEmpty)
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: MessagePage(
+                          icon: Icons.album_outlined,
+                          title: context.l10n.noAlbums,
+                        ),
+                      )
+                    else
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                        sliver: SliverGrid(
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: cross,
+                                mainAxisSpacing: 16,
+                                crossAxisSpacing: 14,
+                                childAspectRatio: albumChildAspectRatio(
+                                  constraints.maxWidth,
+                                  cross,
+                                ),
+                              ),
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) => AlbumCard(
+                              album: albums[index],
+                              onTap: () => openAlbum(context, albums[index]),
+                            ),
+                            childCount: albums.length,
                           ),
                         ),
                       ),
-                      if (albums.isEmpty)
-                        SliverFillRemaining(
-                          hasScrollBody: false,
-                          child: MessagePage(
-                            icon: Icons.album_outlined,
-                            title: context.l10n.noAlbums,
-                          ),
-                        )
-                      else
-                        SliverPadding(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                          sliver: SliverGrid(
-                            gridDelegate:
-                                SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: cross,
-                                  mainAxisSpacing: 16,
-                                  crossAxisSpacing: 14,
-                                  childAspectRatio: albumChildAspectRatio(
-                                    constraints.maxWidth,
-                                    cross,
-                                  ),
-                                ),
-                            delegate: SliverChildBuilderDelegate(
-                              (context, index) => AlbumCard(
-                                album: albums[index],
-                                onTap: () => openAlbum(context, albums[index]),
-                              ),
-                              childCount: albums.length,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                );
-              },
-            );
+                  ],
+                ),
+              );
+            },
+          );
   }
 }

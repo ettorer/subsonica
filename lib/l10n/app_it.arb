@@ -27,6 +27,8 @@
   "tryAgain": "Riprova",
   "show": "Mostra",
   "lyrics": "Testi",
+  "musicOnly": "Solo musica",
+  "withVocals": "Con voce",
   "playQueue": "Coda di riproduzione",
   "options": "Opzioni",
   "nothingPlaying": "Nessun brano in riproduzione",

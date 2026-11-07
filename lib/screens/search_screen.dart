@@ -8,6 +8,7 @@ import '../state/player_controller.dart';
 import '../widgets/song_options_button.dart';
 import '../state/session_controller.dart';
 import '../theme/app_colors.dart';
+import '../util/music_only.dart';
 import '../widgets/cover_image.dart';
 import '../widgets/message_page.dart';
 import 'artist_screen.dart';
@@ -82,6 +83,9 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     final result = _result;
+    final songs = result == null
+        ? const <Song>[]
+        : withoutMusicOnly(result.songs);
     return ColoredBox(
       color: AppColors.background,
       child: _loading && result == null
@@ -93,7 +97,10 @@ class _SearchScreenState extends State<SearchScreen> {
               detail: _error,
               onRetry: _search,
             )
-          : result == null || result.isEmpty
+          : result == null ||
+                (result.artists.isEmpty &&
+                    result.albums.isEmpty &&
+                    songs.isEmpty)
           ? MessagePage(
               icon: Icons.search_off_rounded,
               title: context.l10n.noResults,
@@ -127,12 +134,12 @@ class _SearchScreenState extends State<SearchScreen> {
                         _AlbumResult(album: album),
                     ],
                   ),
-                if (result.songs.isNotEmpty)
+                if (songs.isNotEmpty)
                   _Section(
                     title: context.l10n.tracks,
                     children: [
-                      for (var i = 0; i < result.songs.length; i++)
-                        _SongResult(songs: result.songs, index: i),
+                      for (var i = 0; i < songs.length; i++)
+                        _SongResult(songs: songs, index: i),
                     ],
                   ),
               ],

@@ -162,7 +162,7 @@ class KaraokeHub {
 
   void _onPlayer() {
     if (_closed) return;
-    final song = _player.current;
+    final song = _player.lyricsTrack;
     final id = song?.id;
     if (id != _songId) {
       _songId = id;
@@ -226,7 +226,7 @@ class KaraokeHub {
   }
 
   Map<String, Object?> _state() {
-    final song = _player.current;
+    final song = _player.lyricsTrack;
     return {
       'songId': song?.id ?? '',
       'title': song?.title ?? '',
@@ -240,7 +240,7 @@ class KaraokeHub {
   }
 
   void _broadcastProgress() {
-    final song = _player.current;
+    final song = _player.lyricsTrack;
     if (song == null || _clients.isEmpty) return;
     _lastProgress = DateTime.now();
     _broadcast('lyrics.progress', {

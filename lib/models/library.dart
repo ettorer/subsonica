@@ -11,6 +11,8 @@ class Song {
     this.duration = 0,
     this.starred = false,
     this.userRating = 0,
+    this.path,
+    this.genre,
   });
 
   final String id;
@@ -24,6 +26,8 @@ class Song {
   final int duration;
   final bool starred;
   final int userRating;
+  final String? path;
+  final String? genre;
 
   String? get artworkId {
     final cover = coverArt;

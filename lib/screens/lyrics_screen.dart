@@ -13,6 +13,7 @@ import '../state/player_controller.dart';
 import '../state/session_controller.dart';
 import '../theme/app_colors.dart';
 import '../widgets/cover_image.dart';
+import '../widgets/playback_slider.dart';
 
 void openLyrics(BuildContext context) {
   Navigator.of(context)
@@ -151,7 +152,7 @@ class _LyricsScreenState extends State<LyricsScreen> {
   @override
   Widget build(BuildContext context) {
     final player = context.watch<PlayerController>();
-    final song = player.current;
+    final song = player.lyricsTrack;
     _follow(song);
     final client = context.read<SessionController>().client;
     final downloads = context.read<DownloadController>();
@@ -169,6 +170,19 @@ class _LyricsScreenState extends State<LyricsScreen> {
         ),
         centerTitle: true,
         title: Text(context.l10n.lyrics),
+        actions: [
+          if (player.canSwitchMusicOnly)
+            IconButton(
+              tooltip: player.musicOnly
+                  ? context.l10n.withVocals
+                  : context.l10n.musicOnly,
+              onPressed: player.toggleMusicOnly,
+              color: player.musicOnly ? AppColors.accent : null,
+              icon: Icon(
+                player.musicOnly ? Icons.mic_off_rounded : Icons.mic_rounded,
+              ),
+            ),
+        ],
       ),
       body: Stack(
         fit: StackFit.expand,
@@ -215,19 +229,17 @@ class _LyricsScreenState extends State<LyricsScreen> {
                           ?.copyWith(color: AppColors.muted),
                     ),
                   ),
-                IconButton(
-                  tooltip: player.playing
-                      ? context.l10n.pause
-                      : context.l10n.play,
-                  onPressed: song == null ? null : player.togglePlayPause,
-                  iconSize: 36,
-                  color: AppColors.accent,
-                  icon: Icon(
-                    player.playing
-                        ? Icons.pause_rounded
-                        : Icons.play_arrow_rounded,
-                  ),
-                ),
+                _plain
+                    ? Padding(
+                        padding: const EdgeInsets.fromLTRB(4, 0, 8, 4),
+                        child: Row(
+                          children: [
+                            _playButton(player, song),
+                            const Expanded(child: PlaybackSlider()),
+                          ],
+                        ),
+                      )
+                    : _playButton(player, song),
               ],
             ),
           ),
@@ -240,6 +252,27 @@ class _LyricsScreenState extends State<LyricsScreen> {
     final match = _match;
     if (match == null || !match.found || match.instrumental) return null;
     return match.source;
+  }
+
+  bool get _plain {
+    final match = _match;
+    return match != null &&
+        match.found &&
+        !match.instrumental &&
+        !match.synced &&
+        match.plain.trim().isNotEmpty;
+  }
+
+  Widget _playButton(PlayerController player, Song? song) {
+    return IconButton(
+      tooltip: player.playing ? context.l10n.pause : context.l10n.play,
+      onPressed: song == null ? null : player.togglePlayPause,
+      iconSize: 36,
+      color: AppColors.accent,
+      icon: Icon(
+        player.playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+      ),
+    );
   }
 
   Widget _body(PlayerController player) {

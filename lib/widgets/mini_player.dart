@@ -31,7 +31,7 @@ class MiniPlayer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final player = context.watch<PlayerController>();
-    final song = player.current;
+    final song = player.lyricsTrack;
     if (song == null) return const SizedBox.shrink();
     final client = context.read<SessionController>().client;
     final cover = client?.coverUri(song.artworkId, size: 200)?.toString();

@@ -10,6 +10,7 @@ import '../state/playlist_updates.dart';
 import '../state/session_controller.dart';
 import '../theme/app_colors.dart';
 import '../util/format.dart';
+import '../util/music_only.dart';
 import '../widgets/album_controls.dart';
 import '../widgets/collection_actions.dart';
 import '../widgets/cover_image.dart';
@@ -115,8 +116,8 @@ class _CollectionScreenState extends State<CollectionScreen> {
     if (client == null) {
       if (!mounted) return;
       if (widget.kind == CollectionKind.album) {
-        final songs = context.read<DownloadController>().songsForAlbum(
-          widget.id,
+        final songs = withoutMusicOnly(
+          context.read<DownloadController>().songsForAlbum(widget.id),
         );
         setState(() {
           _songs = songs;
@@ -141,13 +142,14 @@ class _CollectionScreenState extends State<CollectionScreen> {
         case CollectionKind.album:
           final album = await client.getAlbum(widget.id);
           if (!mounted) return;
+          final songs = withoutMusicOnly(album.songs);
           setState(() {
             _title = album.name;
             _subtitle = album.subtitle;
             _albumArtist = album.artist;
             _coverArtId = album.artworkId;
-            _count = album.songs.length;
-            _songs = album.songs;
+            _count = songs.length;
+            _songs = songs;
             _albumRating = album.userRating;
             _loading = false;
           });

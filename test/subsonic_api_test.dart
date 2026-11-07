@@ -52,6 +52,29 @@ void main() {
     expect(uri.toString().contains('sesame'), isFalse);
   });
 
+  test('a song keeps a string genre or the first genre name', () {
+    expect(
+      tryParseSong({
+        'id': 's1',
+        'title': 'El vals soñador',
+        'artist': 'Miguel Caló',
+        'genre': 'Tango',
+      })?.genre,
+      'Tango',
+    );
+    expect(
+      tryParseSong({
+        'id': 's2',
+        'title': 'El vals soñador',
+        'artist': 'Miguel Caló',
+        'genres': [
+          {'name': 'Tango'},
+        ],
+      })?.genre,
+      'Tango',
+    );
+  });
+
   test('user rating is clamped to 0 through 5', () {
     final album = parseAlbums({
       'album': {

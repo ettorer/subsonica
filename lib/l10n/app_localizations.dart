@@ -260,6 +260,18 @@ abstract class AppLocalizations {
   /// **'Lyrics'**
   String get lyrics;
 
+  /// No description provided for @musicOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Music only'**
+  String get musicOnly;
+
+  /// No description provided for @withVocals.
+  ///
+  /// In en, this message translates to:
+  /// **'With vocals'**
+  String get withVocals;
+
   /// No description provided for @playQueue.
   ///
   /// In en, this message translates to:

@@ -148,6 +148,8 @@ Song? tryParseSong(Map<String, dynamic> json) {
     duration: asInt(json['duration']),
     starred: _isStarred(json['starred']),
     userRating: readUserRating(json['userRating']),
+    path: _optionalString(json['path']),
+    genre: _songGenre(json),
   );
 }
 
@@ -284,6 +286,19 @@ SearchResult parseSearch(dynamic node) {
     albums: [for (final json in mapList(node['album'])) ?tryParseAlbum(json)],
     songs: parseSongList(node),
   );
+}
+
+String? _songGenre(Map<String, dynamic> json) {
+  final direct = _optionalString(json['genre']);
+  if (direct != null) return direct;
+  final raw = json['genres'];
+  if (raw is! List || raw.isEmpty) return null;
+  final first = raw.first;
+  if (first is String) return _optionalString(first);
+  if (first is Map) {
+    return _optionalString(first['name'] ?? first['value']);
+  }
+  return null;
 }
 
 String? _optionalString(dynamic value) {

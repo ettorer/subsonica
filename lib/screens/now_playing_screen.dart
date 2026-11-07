@@ -48,9 +48,12 @@ class NowPlayingScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final player = context.watch<PlayerController>();
-    final song = player.current;
+    final song = player.lyricsTrack;
     final client = context.read<SessionController>().client;
     final cover = client?.coverUri(song?.artworkId, size: 800)?.toString();
+    final albumTitle = player.queueTitle.isEmpty
+        ? l10n.nowPlaying
+        : queueLabel(l10n, player.queueTitle);
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -58,15 +61,16 @@ class NowPlayingScreen extends StatelessWidget {
           onPressed: () => Navigator.of(context).maybePop(),
           icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 32),
         ),
-        centerTitle: true,
-        title: Text(
-          player.queueTitle.isEmpty
-              ? l10n.nowPlaying
-              : queueLabel(l10n, player.queueTitle),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
         actions: [
+          if (player.canSwitchMusicOnly)
+            IconButton(
+              tooltip: player.musicOnly ? l10n.withVocals : l10n.musicOnly,
+              onPressed: player.toggleMusicOnly,
+              color: player.musicOnly ? AppColors.accent : null,
+              icon: Icon(
+                player.musicOnly ? Icons.mic_off_rounded : Icons.mic_rounded,
+              ),
+            ),
           IconButton(
             tooltip: l10n.lyrics,
             onPressed: song == null ? null : () => openLyrics(context),
@@ -85,17 +89,24 @@ class NowPlayingScreen extends StatelessWidget {
         ],
       ),
       body: song == null
-          ? Center(child: Text(l10n.nothingPlaying))
+          ? Column(
+              children: [
+                _AlbumTitle(albumTitle),
+                Expanded(child: Center(child: Text(l10n.nothingPlaying))),
+              ],
+            )
           : Stack(
               fit: StackFit.expand,
               children: [
-                if (cover != null) _Backdrop(url: cover),
+                if (cover != null)
+                  _Backdrop(key: ValueKey('backdrop-$cover'), url: cover),
                 SafeArea(
                   top: false,
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                     child: Column(
                       children: [
+                        _AlbumTitle(albumTitle),
                         Expanded(
                           child: Center(
                             child: AspectRatio(
@@ -112,6 +123,7 @@ class NowPlayingScreen extends StatelessWidget {
                                   ],
                                 ),
                                 child: CoverImage(
+                                  key: ValueKey(song.artworkId ?? song.id),
                                   url: cover,
                                   icon: Icons.music_note_rounded,
                                   borderRadius: BorderRadius.circular(20),
@@ -150,10 +162,7 @@ class NowPlayingScreen extends StatelessWidget {
                                 ],
                               ),
                             ),
-                            FavoriteButton(
-                              key: ValueKey(song.id),
-                              song: song,
-                            ),
+                            FavoriteButton(key: ValueKey(song.id), song: song),
                           ],
                         ),
                         const SizedBox(height: 12),
@@ -219,8 +228,32 @@ class NowPlayingScreen extends StatelessWidget {
   }
 }
 
+class _AlbumTitle extends StatelessWidget {
+  const _AlbumTitle(this.title);
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 0, 8, 10),
+      child: Text(
+        title,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: AppColors.muted,
+        ),
+      ),
+    );
+  }
+}
+
 class _Backdrop extends StatelessWidget {
-  const _Backdrop({required this.url});
+  const _Backdrop({super.key, required this.url});
 
   final String url;
 

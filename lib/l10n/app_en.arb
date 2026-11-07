@@ -29,6 +29,8 @@
   "tryAgain": "Try again",
   "show": "Show",
   "lyrics": "Lyrics",
+  "musicOnly": "Music only",
+  "withVocals": "With vocals",
   "playQueue": "Play queue",
   "options": "Options",
   "nothingPlaying": "Nothing is playing",

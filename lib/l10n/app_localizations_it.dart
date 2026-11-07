@@ -98,6 +98,12 @@ class AppLocalizationsIt extends AppLocalizations {
   String get lyrics => 'Testi';
 
   @override
+  String get musicOnly => 'Solo musica';
+
+  @override
+  String get withVocals => 'Con voce';
+
+  @override
   String get playQueue => 'Coda di riproduzione';
 
   @override

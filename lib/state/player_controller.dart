@@ -8,6 +8,7 @@ import 'package:just_audio_background/just_audio_background.dart';
 
 import '../models/library.dart';
 import '../services/subsonic_api.dart';
+import '../util/music_only.dart';
 import 'local_tracks.dart';
 
 class PlayerController extends ChangeNotifier {
@@ -30,6 +31,7 @@ class PlayerController extends ChangeNotifier {
         )
         .listen(_onPosition);
     _durationSub = _player.durationStream.listen((value) {
+      if (_switchingMusic && (value == null || value == Duration.zero)) return;
       durationListenable.value = value ?? Duration.zero;
     });
     _errorSub = _player.playbackEventStream.listen(
@@ -67,6 +69,12 @@ class PlayerController extends ChangeNotifier {
   DateTime? _seekHold;
   var _speedTicket = 0;
   Future<void>? _speedChain;
+  final Map<String, Song?> _siblings = {};
+  Song? _counterpart;
+  var _switchingMusic = false;
+  var _musicOnly = false;
+  var _holdingIndex = false;
+  var _siblingTicket = 0;
 
   late final StreamSubscription<PlayerState> _stateSub;
   late final StreamSubscription<int?> _indexSub;
@@ -92,6 +100,23 @@ class PlayerController extends ChangeNotifier {
       _processing == ProcessingState.loading ||
       _processing == ProcessingState.buffering;
 
+  bool get musicOnly => _musicOnly;
+
+  bool get canSwitchMusicOnly =>
+      _counterpart != null && !isMusicOnlyPath(_current?.path);
+
+  bool get switchingMusic => _switchingMusic;
+
+  /// The vocal recording. Karaoke and the lyrics page stay on this song
+  /// while the music-only file is playing.
+  Song? get lyricsTrack {
+    final song = _current;
+    if (song == null || !isMusicOnlyPath(song.path)) return song;
+    final vocal = _counterpart;
+    if (vocal != null && !isMusicOnlyPath(vocal.path)) return vocal;
+    return song;
+  }
+
   void bindLibrary(LocalTracks library) {
     _library = library;
   }
@@ -106,6 +131,10 @@ class PlayerController extends ChangeNotifier {
     _queueTitle = '';
     _current = null;
     _currentIndex = null;
+    _musicOnly = false;
+    _counterpart = null;
+    _siblings.clear();
+    _siblingTicket++;
     _announcedKey = null;
     _scrobbledKey = null;
     positionListenable.value = Duration.zero;
@@ -137,13 +166,14 @@ class PlayerController extends ChangeNotifier {
     if (!_canPlay(songs)) return;
     final generation = ++_playGeneration;
     final safeIndex = startIndex.clamp(0, songs.length - 1);
-    final sameQueue = matchesQueue(songs);
+    final sameQueue = matchesQueue(songs) && !_musicOnly;
     _error = null;
     if (sameQueue && !shuffle && !_player.shuffleModeEnabled) {
       _queueTitle = queueTitle;
       _currentIndex = safeIndex;
       _current = songs[safeIndex];
       positionListenable.value = Duration.zero;
+      unawaited(_resolveSibling(songs[safeIndex]));
       _notify();
       await _guard(generation, () async {
         await _player.seek(Duration.zero, index: safeIndex);
@@ -156,12 +186,15 @@ class PlayerController extends ChangeNotifier {
     _queueTitle = queueTitle;
     _currentIndex = safeIndex;
     _current = songs[safeIndex];
+    _musicOnly = false;
     positionListenable.value = Duration.zero;
     durationListenable.value = Duration(seconds: songs[safeIndex].duration);
+    unawaited(_resolveSibling(songs[safeIndex]));
     _notify();
 
     final sources = <AudioSource>[
-      for (var i = 0; i < songs.length; i++) _mediaSource(songs[i], i, generation),
+      for (var i = 0; i < songs.length; i++)
+        _mediaSource(songs[i], i, generation),
     ];
 
     await _guard(generation, () async {
@@ -180,6 +213,7 @@ class PlayerController extends ChangeNotifier {
         _currentIndex = pick;
         _current = songs[pick];
         durationListenable.value = Duration(seconds: songs[pick].duration);
+        unawaited(_resolveSibling(songs[pick]));
         _notify();
       }
       await _player.play();
@@ -283,22 +317,100 @@ class PlayerController extends ChangeNotifier {
     return true;
   }
 
-  AudioSource _mediaSource(Song song, int index, int generation) {
+  AudioSource _mediaSource(
+    Song song,
+    int index,
+    int generation, {
+    Song? audio,
+  }) {
+    final played = audio ?? song;
     final coverPath = _library?.coverFile(song.artworkId);
     final artUri = coverPath != null
         ? Uri.file(coverPath)
         : _client?.coverUri(song.artworkId, size: 512);
     final tag = MediaItem(
-      id: '${song.id}#$index#$generation',
+      id: audio == null
+          ? '${song.id}#$index#$generation'
+          : '${song.id}#$index#$generation#music',
       title: song.title,
       album: song.album.isEmpty ? null : song.album,
       artist: song.artist,
       artUri: artUri,
       duration: Duration(seconds: song.duration),
     );
-    final local = _library?.audioPath(song.id);
+    final local = _library?.audioPath(played.id);
     if (local != null) return AudioSource.file(local, tag: tag);
-    return AudioSource.uri(_client!.streamUri(song.id), tag: tag);
+    return AudioSource.uri(_client!.streamUri(played.id), tag: tag);
+  }
+
+  Future<void> toggleMusicOnly() async {
+    final vocal = _current;
+    final index = _currentIndex;
+    final instrumental = _counterpart;
+    if (vocal == null ||
+        index == null ||
+        instrumental == null ||
+        _switchingMusic ||
+        isMusicOnlyPath(vocal.path)) {
+      return;
+    }
+    final playInstrumental = !_musicOnly;
+    final audio = playInstrumental ? instrumental : vocal;
+    if (!_canPlay([audio])) return;
+    final position = positionListenable.value;
+    final resume = _playing;
+    final generation = _playGeneration;
+    // The file change leaves a short silence. Start the new file this far
+    // ahead so the music lines up with where it would have been.
+    const lead = Duration(milliseconds: 200);
+    final limit = Duration(
+      seconds: audio.duration > 0 ? audio.duration : vocal.duration,
+    );
+    final ahead = resume ? position + lead : position;
+    final seekTo = limit > Duration.zero && ahead > limit ? limit : ahead;
+    _switchingMusic = true;
+    _holdingIndex = true;
+    _seekTarget = seekTo;
+    _seekHold = DateTime.now().add(const Duration(seconds: 3));
+    positionListenable.value = seekTo;
+    var added = false;
+    try {
+      final inserted = index + 1;
+      await _player.insertAudioSource(
+        inserted,
+        _mediaSource(
+          vocal,
+          index,
+          generation,
+          audio: playInstrumental ? instrumental : null,
+        ),
+      );
+      added = true;
+      if (generation != _playGeneration) return;
+      await _player.seek(seekTo, index: inserted);
+      if (generation != _playGeneration) return;
+      await _player.removeAudioSourceAt(index);
+      added = false;
+      if (generation != _playGeneration) return;
+      _musicOnly = playInstrumental;
+      if (resume && !_player.playing) await _player.play();
+    } on PlayerInterruptedException {
+      // The swap is rolled back below when the extra source is still in place.
+    } catch (error) {
+      if (generation == _playGeneration) _setError(_playbackMessage(error));
+    } finally {
+      if (added && generation == _playGeneration) {
+        try {
+          if (_player.currentIndex != index) {
+            await _player.seek(position, index: index);
+          }
+          await _player.removeAudioSourceAt(index + 1);
+        } catch (_) {}
+      }
+      _holdingIndex = false;
+      _switchingMusic = false;
+      if (!_disposed) _notify();
+    }
   }
 
   Future<void> togglePlayPause() {
@@ -403,13 +515,75 @@ class PlayerController extends ChangeNotifier {
   }
 
   void _onIndex(int? index) {
+    if (_holdingIndex) return;
     if (index == null || index < 0 || index >= _queue.length) return;
     final song = _queue[index];
     final changed = index != _currentIndex || _current?.id != song.id;
     _currentIndex = index;
     _current = song;
     _markNowPlaying(song);
-    if (changed) _notify();
+    if (changed) {
+      _musicOnly = false;
+      unawaited(_resolveSibling(song));
+      _notify();
+    }
+  }
+
+  Future<void> _resolveSibling(Song song) async {
+    final ticket = ++_siblingTicket;
+    if (_siblings.containsKey(song.id)) {
+      _counterpart = _siblings[song.id];
+      if (ticket == _siblingTicket) _notify();
+      return;
+    }
+    _counterpart = null;
+    _notify();
+    final found = await _findSibling(song);
+    if (_disposed || ticket != _siblingTicket || _current?.id != song.id) {
+      return;
+    }
+    _siblings[song.id] = found;
+    if (found != null) _siblings[found.id] = song;
+    _counterpart = found;
+    _notify();
+  }
+
+  Future<Song?> _findSibling(Song song) async {
+    final wanted = musicOnlySiblingPath(song.path);
+    final client = _client;
+    if (wanted == null || client == null) return null;
+    final albumId = song.albumId;
+    if (albumId != null && albumId.isNotEmpty) {
+      try {
+        final album = await client.getAlbum(albumId);
+        final match = songWithPath(album.songs, wanted);
+        if (match != null) return match;
+      } on SubsonicException {
+        // The album may be unreachable. The search below is the other look-up.
+      }
+    }
+    final stem = _searchStem(wanted);
+    if (stem.isEmpty) return null;
+    try {
+      final result = await client.search(stem);
+      return songWithPath(result.songs, wanted);
+    } on SubsonicException {
+      return null;
+    }
+  }
+
+  String _searchStem(String path) {
+    final slash = path.lastIndexOf(RegExp(r'[\\/]'));
+    final name = slash < 0 ? path : path.substring(slash + 1);
+    final lower = name.toLowerCase();
+    final stem = lower.endsWith('.mp3')
+        ? name.substring(0, name.length - 4)
+        : name;
+    const marker = '-music';
+    if (stem.toLowerCase().endsWith(marker)) {
+      return stem.substring(0, stem.length - marker.length).trim();
+    }
+    return stem.trim();
   }
 
   void _onLoop(LoopMode mode) {
