@@ -1,8 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/library.dart';
-import '../state/download_controller.dart';
+import '../state/downloads.dart';
 import '../state/session_controller.dart';
 import '../theme/app_colors.dart';
 import 'cover_image.dart';
@@ -57,6 +58,11 @@ class AlbumCard extends StatelessWidget {
 }
 
 int albumCrossCount(double width) {
+  if (kIsWeb) {
+    final count = width ~/ 220;
+    if (count < 2) return 2;
+    return count;
+  }
   if (width >= 1000) return 5;
   if (width >= 760) return 4;
   if (width >= 520) return 3;

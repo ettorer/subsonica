@@ -1,10 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../l10n/context_l10n.dart';
 import '../models/server_config.dart';
-import '../state/download_controller.dart';
-import '../state/karaoke_controller.dart';
+import '../state/downloads.dart';
+import '../state/karaoke.dart';
 import '../state/locale_controller.dart';
 import '../state/session_controller.dart';
 import '../theme/app_colors.dart';
@@ -18,6 +19,7 @@ class SettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (kIsWeb) return const _WebSettings();
     final l10n = context.l10n;
     final session = context.watch<SessionController>();
     final downloads = context.watch<DownloadController>();
@@ -127,6 +129,12 @@ class _KaraokeTile extends StatelessWidget {
     final l10n = context.l10n;
     final karaoke = context.watch<KaraokeController>();
     final url = karaoke.url;
+    final secureUrl = karaoke.secureUrl;
+    const addressStyle = TextStyle(
+      color: AppColors.remote,
+      fontSize: 16,
+      fontWeight: FontWeight.w700,
+    );
     return SwitchListTile(
       contentPadding: EdgeInsets.zero,
       title: Text(l10n.karaoke),
@@ -145,17 +153,16 @@ class _KaraokeTile extends StatelessWidget {
               color: karaoke.failed ? AppColors.danger : AppColors.muted,
             ),
           ),
-          if (url != null) ...[
-            const SizedBox(height: 6),
-            SelectableText(
-              url,
-              style: const TextStyle(
-                color: AppColors.remote,
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-              ),
+          if (secureUrl != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: SelectableText(secureUrl, style: addressStyle),
             ),
-          ],
+          if (url != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: SelectableText(url, style: addressStyle),
+            ),
         ],
       ),
       value: karaoke.enabled,
@@ -244,5 +251,132 @@ class _ProfileTile extends StatelessWidget {
     final confirmed = await confirmDeleteProfile(context, profile.name);
     if (!confirmed || !context.mounted) return;
     await context.read<SessionController>().deleteProfile(profile.id);
+  }
+}
+
+class _WebSettings extends StatefulWidget {
+  const _WebSettings();
+
+  @override
+  State<_WebSettings> createState() => _WebSettingsState();
+}
+
+class _WebSettingsState extends State<_WebSettings> {
+  late final TextEditingController _url;
+  String? _error;
+  var _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _url = TextEditingController(
+      text: context.read<SessionController>().webServerUrl ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _url.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    final session = context.read<SessionController>();
+    final wasConnected = session.isConnected;
+    final error = await session.updateWebServerUrl(_url.text);
+    if (!mounted) return;
+    if (error != null) {
+      setState(() {
+        _busy = false;
+        _error = localizeMessage(context.l10n, error);
+      });
+      return;
+    }
+    if (wasConnected && !session.isConnected) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
+      return;
+    }
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+      return;
+    }
+    setState(() => _busy = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final locale = context.watch<LocaleController>();
+    return Scaffold(
+      appBar: AppBar(title: Text(l10n.settingsTitle)),
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+              children: [
+                DropdownButtonFormField<String>(
+                  key: ValueKey(locale.preference),
+                  initialValue: locale.preference,
+                  isExpanded: true,
+                  decoration: InputDecoration(labelText: l10n.language),
+                  items: [
+                    DropdownMenuItem(
+                      value: 'auto',
+                      child: Text(l10n.localeAutomatic),
+                    ),
+                    const DropdownMenuItem(value: 'en', child: Text('English')),
+                    const DropdownMenuItem(
+                      value: 'it',
+                      child: Text('Italiano'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    context.read<LocaleController>().setPreference(value);
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _url,
+                  keyboardType: TextInputType.url,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  autofillHints: const [AutofillHints.url],
+                  onChanged: (_) {
+                    if (_error == null) return;
+                    setState(() => _error = null);
+                  },
+                  decoration: InputDecoration(
+                    labelText: l10n.serverUrl,
+                    hintText: 'https://music.example.com',
+                  ),
+                ),
+                if (_error != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    _error!,
+                    style: const TextStyle(
+                      color: AppColors.danger,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 20),
+                FilledButton(
+                  onPressed: _busy ? null : _save,
+                  child: Text(l10n.save),
+                ),
+              ],
+            ),
+          ),
+          const MiniPlayerSlot(),
+        ],
+      ),
+    );
   }
 }

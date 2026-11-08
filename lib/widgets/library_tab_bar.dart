@@ -15,14 +15,27 @@ class LibraryTabBar extends StatelessWidget {
   final ValueChanged<int> onSelected;
   final List<(IconData, IconData, String)> items;
 
-  static List<(IconData, IconData, String)> libraryItems(AppLocalizations l10n) {
+  static List<(IconData, IconData, String)> onlineItems(AppLocalizations l10n) {
+    return [
+      (Icons.home_outlined, Icons.home_rounded, l10n.tabHome),
+      ...libraryItems(l10n),
+    ];
+  }
+
+  static List<(IconData, IconData, String)> libraryItems(
+    AppLocalizations l10n,
+  ) {
     return [
       (Icons.album_outlined, Icons.album_rounded, l10n.tabAlbum),
       (Icons.music_note_outlined, Icons.music_note_rounded, l10n.tabTrack),
       (Icons.person_outline_rounded, Icons.person_rounded, l10n.tabArtist),
       (Icons.sell_outlined, Icons.sell_rounded, l10n.tabGenre),
       (Icons.queue_music_outlined, Icons.queue_music_rounded, l10n.tabPlaylist),
-      (Icons.favorite_border_rounded, Icons.favorite_rounded, l10n.tabFavorites),
+      (
+        Icons.favorite_border_rounded,
+        Icons.favorite_rounded,
+        l10n.tabFavorites,
+      ),
     ];
   }
 

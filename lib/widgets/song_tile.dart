@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../l10n/context_l10n.dart';
 import '../models/library.dart';
-import '../state/download_controller.dart';
+import '../state/downloads.dart';
 import '../state/player_controller.dart';
 import '../state/session_controller.dart';
 import '../theme/app_colors.dart';

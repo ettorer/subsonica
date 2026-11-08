@@ -16,12 +16,13 @@
 - Lyrics from the now playing screen. Navidrome first, then LRCLIB, then lyrics.ovh. Synced lines follow playback and a tap seeks. Plain lyrics stay as static text, with the track slider beside play. A Tango with no lyrics is searched on LRCLIB by the title plus the word Tango, and only the plain text is kept. Lyrics for a downloaded track are kept on the phone.
 - A file named like `Halo-music.mp3` is the music-only copy of `Halo.mp3`. Album lists and search hide it, and also hide a `-vocals.mp3` file, which is unused. Now playing and the lyrics page show a microphone when the music-only file exists. The mic swaps the audio. The cover and the lyrics stay on the vocal track.
 - Rate the current track or an album from 0 to 5. Start radio plays similar songs after the current track. The server does not save that list.
-- Karaoke is a Settings switch. The phone serves a page on the local Wi-Fi and shows the address. A TV or PC browser on that network shows the cover, title, artist, and lyrics. A cyan border and a cast icon mean it is on. The browser does not control playback. A remote control from that page is still to come.
+- Karaoke is a Settings switch. The phone serves a page on the local Wi-Fi and shows the address. A TV or PC browser on that network shows the cover, title, artist, and lyrics. A cyan border and a cast icon mean it is on. The browser does not control playback. A remote control from that page is still to come. Put `server.crt` and `server.key` in `assets/karaoke/` before building to also serve that page with HTTPS on port 8766. Those files are not in git. Without them, only port 8765 is served.
 - English and Italian. Settings → Language defaults to Automatic, which follows the phone language.
+- The web build plays music and shows lyrics in the browser. Settings stores one server URL. Sign-in asks for that URL only when it is empty, then the username and password. Karaoke, offline mode, downloads, and connection profiles are not in the web build. The album grid uses the width of the window. Navidrome has to allow the site's origin, or the browser blocks the API and the cover images.
 
 # Build
 
-The app has been tested only on Android so far. The iPhone project is in this same folder, but the steps below are the ones used on Android.
+The app has been tested only on Android so far. The iPhone project is in this same folder. A browser build is `flutter build web`. The steps below are the ones used on Android.
 
 1. Install Flutter from [flutter.dev](https://docs.flutter.dev/get-started/install). Install Android Studio as well, so the Android SDK is on the machine. Open a terminal and run `flutter doctor`. Fix anything it reports for Android before continuing.
 

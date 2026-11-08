@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -5,7 +6,7 @@ import '../l10n/context_l10n.dart';
 import '../models/download.dart';
 import '../models/library.dart';
 import '../services/subsonic_api.dart';
-import '../state/download_controller.dart';
+import '../state/downloads.dart';
 import '../state/player_controller.dart';
 import '../state/rating_updates.dart';
 import '../state/session_controller.dart';
@@ -165,16 +166,18 @@ class _PlaybackSpeedSheetState extends State<PlaybackSpeedSheet> {
               rating: context.watch<RatingUpdates>().songRating(song),
               onChanged: (next) => _rateSong(song, next),
             ),
-            const Divider(height: 1, color: AppColors.outline),
-            DownloadSheetTile(
-              downloaded: downloaded,
-              label: downloaded
-                  ? l10n.removeDownload
-                  : inProgress
-                  ? l10n.cancelDownload
-                  : l10n.download,
-              onPressed: () => _downloadSong(song, entry?.status),
-            ),
+            if (!kIsWeb) ...[
+              const Divider(height: 1, color: AppColors.outline),
+              DownloadSheetTile(
+                downloaded: downloaded,
+                label: downloaded
+                    ? l10n.removeDownload
+                    : inProgress
+                    ? l10n.cancelDownload
+                    : l10n.download,
+                onPressed: () => _downloadSong(song, entry?.status),
+              ),
+            ],
           ],
           const Divider(height: 1, color: AppColors.outline),
           ListTile(

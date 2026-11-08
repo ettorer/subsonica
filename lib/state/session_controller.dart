@@ -16,6 +16,7 @@ class SessionController extends ChangeNotifier {
   SubsonicClient? _client;
   ServerAbout? _server;
   String? _connectionError;
+  String? _webServerUrl;
   bool _booting = true;
   bool _connecting = false;
   bool _holdAtConnection = false;
@@ -31,8 +32,15 @@ class SessionController extends ChangeNotifier {
   SubsonicClient? get client => _client;
   ServerAbout? get server => _server;
   String? get connectionError => _connectionError;
+  String? get webServerUrl => _webServerUrl;
 
   Future<void> bootstrap() async {
+    if (kIsWeb) {
+      _webServerUrl = await _store.loadWebServerUrl();
+      _booting = false;
+      notifyListeners();
+      return;
+    }
     final stored = await _store.loadConnections();
     _profiles
       ..clear()
@@ -64,9 +72,54 @@ class SessionController extends ChangeNotifier {
     return _establish(profile, remember: true);
   }
 
+  Future<String?> signIn({
+    required String baseUrl,
+    required String username,
+    required String password,
+  }) {
+    final name = username.trim();
+    if (name.isEmpty) return Future.value('Enter the username.');
+    return _establish(
+      ServerConfig(
+        id: 'web',
+        name: profileNameFromUrl(baseUrl),
+        baseUrl: baseUrl,
+        username: name,
+        password: password,
+      ),
+      remember: false,
+    ).then((error) async {
+      if (error != null) return error;
+      _webServerUrl = baseUrl;
+      await _store.saveWebServerUrl(baseUrl);
+      return null;
+    });
+  }
+
+  Future<String?> updateWebServerUrl(String raw) async {
+    final baseUrl = normalizeServerUrl(raw);
+    if (baseUrl == null) {
+      return 'Enter a server address like http://192.168.1.20:4533.';
+    }
+    await _store.saveWebServerUrl(baseUrl);
+    final changed = _config != null && _config!.baseUrl != baseUrl;
+    _webServerUrl = baseUrl;
+    if (changed) {
+      _client?.close();
+      _client = null;
+      _config = null;
+      _server = null;
+      _connectionError = null;
+    }
+    notifyListeners();
+    return null;
+  }
+
   Future<String?> useProfile(String id) {
     final profile = _find(id);
-    if (profile == null) return Future.value('That profile is no longer saved.');
+    if (profile == null) {
+      return Future.value('That profile is no longer saved.');
+    }
     _draft = profile;
     return _establish(profile, remember: true);
   }
@@ -127,6 +180,16 @@ class SessionController extends ChangeNotifier {
       _connectionError = null;
     }
     await _store.saveConnections(_profiles, _activeId);
+    notifyListeners();
+  }
+
+  void signOut() {
+    _client?.close();
+    _client = null;
+    _config = null;
+    _server = null;
+    _connectionError = null;
+    _connecting = false;
     notifyListeners();
   }
 

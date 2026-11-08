@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -9,6 +8,7 @@ import 'package:http/http.dart' as http;
 
 import '../models/library.dart';
 import '../models/server_config.dart';
+import 'io_error.dart';
 
 const subsonicApiVersion = '1.16.1';
 const subsonicClientName = 'Subsonica';
@@ -48,8 +48,10 @@ String describeError(Object error) {
   if (error is TimeoutException) {
     return 'The server took too long to respond.';
   }
-  if (error is HandshakeException) return 'The secure connection failed.';
-  if (error is SocketException || error is http.ClientException) {
+  if (isTlsFailure(error)) {
+    return 'The secure connection failed.';
+  }
+  if (isUnreachable(error)) {
     return 'Cannot reach the server. Check the address.';
   }
   if (error is FormatException) {
@@ -347,6 +349,15 @@ class SubsonicClient {
     return parseAlbums(data['albumList2']);
   }
 
+  Future<List<Album>> getRecentAlbums({required int offset, int? size}) async {
+    final data = await _request('getAlbumList2.view', {
+      'type': 'recent',
+      'size': '${size ?? albumPageSize}',
+      'offset': '$offset',
+    });
+    return parseAlbums(data['albumList2']);
+  }
+
   Future<Album> getAlbum(String id) async {
     final data = await _request('getAlbum.view', {'id': id});
     final album = data['album'];
@@ -580,65 +591,9 @@ class SubsonicClient {
     return _uri('download.view', {'id': id}, json: false);
   }
 
-  Future<int> saveToFile(
-    Uri uri,
-    File destination, {
-    void Function(int received, int? total)? onProgress,
-    bool Function()? isCancelled,
-  }) async {
+  Future<http.StreamedResponse> openBinary(Uri uri) {
     final request = http.Request('GET', uri);
-    final response = await _http
-        .send(request)
-        .timeout(const Duration(seconds: 30));
-    if (response.statusCode != 200) {
-      throw SubsonicException(
-        'The server returned HTTP ${response.statusCode}.',
-      );
-    }
-    final type = response.headers['content-type']?.toLowerCase() ?? '';
-    if (type.contains('json') ||
-        type.contains('xml') ||
-        type.contains('text/html')) {
-      final body = await response.stream.bytesToString();
-      throw SubsonicException(
-        body.trim().isEmpty
-            ? 'The server did not return the file.'
-            : 'The server did not return the file.',
-      );
-    }
-    final total = response.contentLength;
-    final partial = File('${destination.path}.part');
-    if (partial.existsSync()) await partial.delete();
-    final sink = partial.openWrite();
-    var received = 0;
-    var first = true;
-    var closed = false;
-    try {
-      await for (final chunk in response.stream) {
-        if (isCancelled?.call() == true) throw const DownloadCancelled();
-        if (first) {
-          first = false;
-          if (_looksLikeSubsonicError(chunk)) {
-            throw const SubsonicException(
-              'The server did not return the file.',
-            );
-          }
-        }
-        sink.add(chunk);
-        received += chunk.length;
-        onProgress?.call(received, total);
-      }
-      await sink.flush();
-      await sink.close();
-      closed = true;
-    } catch (error) {
-      if (!closed) await sink.close();
-      if (partial.existsSync()) await partial.delete();
-      rethrow;
-    }
-    if (destination.existsSync()) await destination.delete();
-    await partial.rename(destination.path);
-    return received;
+    return _http.send(request).timeout(const Duration(seconds: 30));
   }
 
   bool _looksLikeSubsonicError(List<int> chunk) {
@@ -694,18 +649,17 @@ class SubsonicClient {
       rethrow;
     } on TimeoutException {
       throw const SubsonicException('The server took too long to respond.');
-    } on SocketException {
-      throw const SubsonicException(
-        'Cannot reach the server. Check the address.',
-      );
-    } on http.ClientException {
-      throw const SubsonicException(
-        'Cannot reach the server. Check the address.',
-      );
     } on FormatException {
       throw const SubsonicException(
         'The server did not return a Subsonic response. Check the address.',
       );
+    } catch (error) {
+      if (isUnreachable(error)) {
+        throw const SubsonicException(
+          'Cannot reach the server. Check the address.',
+        );
+      }
+      rethrow;
     }
   }
 
@@ -728,18 +682,17 @@ class SubsonicClient {
       rethrow;
     } on TimeoutException {
       throw const SubsonicException('The server took too long to respond.');
-    } on SocketException {
-      throw const SubsonicException(
-        'Cannot reach the server. Check the address.',
-      );
-    } on http.ClientException {
-      throw const SubsonicException(
-        'Cannot reach the server. Check the address.',
-      );
     } on FormatException {
       throw const SubsonicException(
         'The server did not return a Subsonic response. Check the address.',
       );
+    } catch (error) {
+      if (isUnreachable(error)) {
+        throw const SubsonicException(
+          'Cannot reach the server. Check the address.',
+        );
+      }
+      rethrow;
     }
   }
 

@@ -1,3 +1,6 @@
+import 'dart:math';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -5,7 +8,7 @@ import '../l10n/context_l10n.dart';
 import '../models/library.dart';
 import '../services/subsonic_api.dart';
 import 'album_options_sheet.dart';
-import '../state/download_controller.dart';
+import '../state/downloads.dart';
 import '../state/playlist_updates.dart';
 import '../state/session_controller.dart';
 import '../theme/app_colors.dart';
@@ -242,6 +245,7 @@ class _CollectionScreenState extends State<CollectionScreen> {
         : client?.coverUri(_coverArtId, size: 800)?.toString();
     final width = MediaQuery.sizeOf(context).width;
     final side = (width - 96).clamp(180.0, 280.0);
+    final webAlbum = kIsWeb && widget.kind == CollectionKind.album;
     return Scaffold(
       appBar: AppBar(
         actions: [
@@ -258,18 +262,207 @@ class _CollectionScreenState extends State<CollectionScreen> {
             ),
         ],
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: RefreshIndicator(
+      body: webAlbum
+          ? _WebAlbumBody(
+              cover: cover,
+              localCover: localCover,
+              icon: _icon,
+              title: _title,
+              subtitle: _subtitle,
+              countLabel: formatTrackCount(context.l10n, _count),
+              controls: AlbumControls(
+                albumId: widget.id,
+                songs: _loading ? const [] : _songs,
+                queueTitle: _title,
+              ),
               onRefresh: _load,
-              child: CustomScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
-                      child: Column(
+              tracks: _trackSlivers(),
+            )
+          : Column(
+              children: [
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh: _load,
+                    child: CustomScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      slivers: [
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
+                            child: Column(
+                              children: [
+                                Center(
+                                  child: SizedBox(
+                                    width: side,
+                                    height: side,
+                                    child: CoverImage(
+                                      url: cover,
+                                      filePath: localCover,
+                                      icon: _icon,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  _title,
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                if (_subtitle != null &&
+                                    widget.kind == CollectionKind.album) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _subtitle!,
+                                    textAlign: TextAlign.center,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: AppColors.muted,
+                                    ),
+                                  ),
+                                ],
+                                const SizedBox(height: 4),
+                                Text(
+                                  formatTrackCount(context.l10n, _count),
+                                  style: const TextStyle(
+                                    color: AppColors.muted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        SliverToBoxAdapter(child: _transport()),
+                        ..._trackSlivers(),
+                      ],
+                    ),
+                  ),
+                ),
+                const MiniPlayerSlot(),
+              ],
+            ),
+    );
+  }
+
+  Widget _transport() {
+    final songs = _loading ? const <Song>[] : _songs;
+    return switch (widget.kind) {
+      CollectionKind.album => AlbumControls(
+        albumId: widget.id,
+        songs: songs,
+        queueTitle: _title,
+      ),
+      CollectionKind.playlist => PlaylistControls(
+        songs: songs,
+        queueTitle: _title,
+      ),
+      CollectionKind.genre => CollectionActions(
+        songs: songs,
+        queueTitle: _title,
+      ),
+    };
+  }
+
+  List<Widget> _trackSlivers() {
+    if (_loading) {
+      return const [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.all(32),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+        ),
+      ];
+    }
+    if (_error != null) {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: MessagePage(
+            icon: Icons.cloud_off_rounded,
+            title: context.l10n.couldNotLoadTracks,
+            detail: _error,
+            onRetry: _load,
+          ),
+        ),
+      ];
+    }
+    if (_songs.isEmpty) {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: MessagePage(
+            icon: Icons.music_off_rounded,
+            title: context.l10n.noTracks,
+          ),
+        ),
+      ];
+    }
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.only(bottom: 12),
+        sliver: SongSliver(
+          songs: _songs,
+          queueTitle: _title,
+          showArtist: widget.kind != CollectionKind.album,
+          albumArtist: _albumArtist,
+          groupDiscs: widget.kind == CollectionKind.album,
+          onRemove: widget.kind == CollectionKind.playlist
+              ? _removeTrack
+              : null,
+        ),
+      ),
+    ];
+  }
+}
+
+class _WebAlbumBody extends StatelessWidget {
+  const _WebAlbumBody({
+    required this.cover,
+    required this.localCover,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.countLabel,
+    required this.controls,
+    required this.onRefresh,
+    required this.tracks,
+  });
+
+  final String? cover;
+  final String? localCover;
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final String countLabel;
+  final Widget controls;
+  final Future<void> Function() onRefresh;
+  final List<Widget> tracks;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Expanded(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                flex: 1,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 8, 16, 8),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      const reserved = 176.0;
+                      final room = constraints.maxHeight - reserved;
+                      final side = min(constraints.maxWidth, max(96.0, room));
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Center(
                             child: SizedBox(
@@ -278,13 +471,13 @@ class _CollectionScreenState extends State<CollectionScreen> {
                               child: CoverImage(
                                 url: cover,
                                 filePath: localCover,
-                                icon: _icon,
+                                icon: icon,
                               ),
                             ),
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            _title,
+                            title,
                             textAlign: TextAlign.center,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
@@ -293,11 +486,10 @@ class _CollectionScreenState extends State<CollectionScreen> {
                               fontWeight: FontWeight.w700,
                             ),
                           ),
-                          if (_subtitle != null &&
-                              widget.kind == CollectionKind.album) ...[
+                          if (subtitle != null) ...[
                             const SizedBox(height: 4),
                             Text(
-                              _subtitle!,
+                              subtitle!,
                               textAlign: TextAlign.center,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
@@ -306,76 +498,43 @@ class _CollectionScreenState extends State<CollectionScreen> {
                           ],
                           const SizedBox(height: 4),
                           Text(
-                            formatTrackCount(context.l10n, _count),
+                            countLabel,
+                            textAlign: TextAlign.center,
                             style: const TextStyle(color: AppColors.muted),
                           ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  SliverToBoxAdapter(
-                    child: widget.kind == CollectionKind.album
-                        ? AlbumControls(
-                            albumId: widget.id,
-                            songs: _loading ? const [] : _songs,
-                            queueTitle: _title,
-                          )
-                        : widget.kind == CollectionKind.playlist
-                        ? PlaylistControls(
-                            songs: _loading ? const [] : _songs,
-                            queueTitle: _title,
-                          )
-                        : CollectionActions(
-                            songs: _loading ? const [] : _songs,
-                            queueTitle: _title,
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: SizedBox(
+                              width: max(constraints.maxWidth, 320),
+                              child: controls,
+                            ),
                           ),
+                        ],
+                      );
+                    },
                   ),
-                  if (_loading)
-                    const SliverToBoxAdapter(
-                      child: Padding(
-                        padding: EdgeInsets.all(32),
-                        child: Center(child: CircularProgressIndicator()),
-                      ),
-                    )
-                  else if (_error != null)
-                    SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: MessagePage(
-                        icon: Icons.cloud_off_rounded,
-                        title: context.l10n.couldNotLoadTracks,
-                        detail: _error,
-                        onRetry: _load,
-                      ),
-                    )
-                  else if (_songs.isEmpty)
-                    SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: MessagePage(
-                        icon: Icons.music_off_rounded,
-                        title: context.l10n.noTracks,
-                      ),
-                    )
-                  else
-                    SliverPadding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      sliver: SongSliver(
-                        songs: _songs,
-                        queueTitle: _title,
-                        showArtist: widget.kind != CollectionKind.album,
-                        albumArtist: _albumArtist,
-                        groupDiscs: widget.kind == CollectionKind.album,
-                        onRemove: widget.kind == CollectionKind.playlist
-                            ? _removeTrack
-                            : null,
-                      ),
-                    ),
-                ],
+                ),
               ),
-            ),
+              const VerticalDivider(
+                width: 1,
+                thickness: 1,
+                color: AppColors.outline,
+              ),
+              Expanded(
+                flex: 2,
+                child: RefreshIndicator(
+                  onRefresh: onRefresh,
+                  child: CustomScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: tracks,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const MiniPlayerSlot(),
-        ],
-      ),
+        ),
+        const MiniPlayerSlot(),
+      ],
     );
   }
 }

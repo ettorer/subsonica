@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -7,11 +8,12 @@ import '../models/library.dart';
 import '../screens/collection_screen.dart';
 import '../screens/queue_screen.dart';
 import '../services/subsonic_api.dart';
-import '../state/download_controller.dart';
+import '../state/downloads.dart';
 import '../state/favorite_updates.dart';
 import '../state/session_controller.dart';
 import '../theme/app_colors.dart';
 import 'choice_menu.dart';
+import 'playlist_button.dart';
 
 class SongOptionsButton extends StatefulWidget {
   const SongOptionsButton({super.key, required this.song});
@@ -52,9 +54,8 @@ class _SongOptionsButtonState extends State<SongOptionsButton> {
   void _showAlbum() {
     final albumId = widget.song.albumId;
     if (albumId == null || albumId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.noAlbumPage)),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(context.l10n.noAlbumPage)));
       return;
     }
     openAlbum(
@@ -103,7 +104,13 @@ class _SongOptionsButtonState extends State<SongOptionsButton> {
         icon: Icons.queue_music_rounded,
         label: context.l10n.addToQueue,
       ),
-      _downloadChoice(entry),
+      MenuChoice(
+        value: 'playlist',
+        icon: Icons.playlist_add_rounded,
+        label: context.l10n.addToPlaylist,
+        enabled: client != null,
+      ),
+      if (!kIsWeb) _downloadChoice(entry),
       MenuChoice(
         value: 'album',
         icon: Icons.album_outlined,
@@ -117,6 +124,8 @@ class _SongOptionsButtonState extends State<SongOptionsButton> {
         await _toggleFavorite();
       case 'queue':
         await addSongsToPlayQueue(context, [widget.song]);
+      case 'playlist':
+        await showAddToPlaylistSheet(context, widget.song);
       case 'download':
         await _download();
       case 'remove-download':
@@ -153,9 +162,9 @@ class _SongOptionsButtonState extends State<SongOptionsButton> {
   Future<void> _download() async {
     final client = context.read<SessionController>().client;
     if (client == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.connectToDownload)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.connectToDownload)));
       return;
     }
     final added = await context.read<DownloadController>().enqueue([

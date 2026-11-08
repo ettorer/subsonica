@@ -25,6 +25,7 @@ class KaraokeController extends ChangeNotifier {
   var busy = false;
   var failed = false;
   String? url;
+  String? secureUrl;
   var _ticket = 0;
   KaraokeHub? _hub;
 
@@ -46,6 +47,7 @@ class KaraokeController extends ChangeNotifier {
       if (ticket != _ticket) return;
       enabled = false;
       url = null;
+      secureUrl = null;
       failed = false;
       busy = false;
       notifyListeners();
@@ -64,11 +66,13 @@ class KaraokeController extends ChangeNotifier {
       _hub = hub;
       enabled = true;
       url = hub.url;
+      secureUrl = hub.secureUrl;
       failed = false;
     } catch (_) {
       if (ticket != _ticket) return;
       enabled = false;
       url = null;
+      secureUrl = null;
       failed = true;
       await _settings.saveKaraoke(false);
     }

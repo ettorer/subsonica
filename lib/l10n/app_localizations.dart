@@ -116,6 +116,12 @@ abstract class AppLocalizations {
   /// **'Settings'**
   String get settingsTitle;
 
+  /// No description provided for @logOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Log out'**
+  String get logOut;
+
   /// No description provided for @offlineLabel.
   ///
   /// In en, this message translates to:
@@ -410,6 +416,12 @@ abstract class AppLocalizations {
   /// **'Connect'**
   String get connect;
 
+  /// No description provided for @signIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in'**
+  String get signIn;
+
   /// No description provided for @connectionSaved.
   ///
   /// In en, this message translates to:
@@ -547,6 +559,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Server connection'**
   String get serverConnection;
+
+  /// No description provided for @tabHome.
+  ///
+  /// In en, this message translates to:
+  /// **'Home'**
+  String get tabHome;
 
   /// No description provided for @tabAlbum.
   ///
@@ -883,6 +901,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No albums'**
   String get noAlbums;
+
+  /// No description provided for @noRecentAlbums.
+  ///
+  /// In en, this message translates to:
+  /// **'No recent albums'**
+  String get noRecentAlbums;
+
+  /// No description provided for @noRecentAlbumsDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Albums show up here after you play them.'**
+  String get noRecentAlbumsDetail;
 
   /// No description provided for @addToPlaylist.
   ///

@@ -19,6 +19,9 @@ class AppLocalizationsIt extends AppLocalizations {
   String get settingsTitle => 'Impostazioni';
 
   @override
+  String get logOut => 'Esci';
+
+  @override
   String get offlineLabel => 'Offline';
 
   @override
@@ -174,6 +177,9 @@ class AppLocalizationsIt extends AppLocalizations {
   String get connect => 'Connetti';
 
   @override
+  String get signIn => 'Accedi';
+
+  @override
   String get connectionSaved => 'Connessione salvata';
 
   @override
@@ -245,6 +251,9 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get serverConnection => 'Connessione al server';
+
+  @override
+  String get tabHome => 'Home';
 
   @override
   String get tabAlbum => 'Album';
@@ -426,6 +435,13 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get noAlbums => 'Nessun album';
+
+  @override
+  String get noRecentAlbums => 'Nessun album recente';
+
+  @override
+  String get noRecentAlbumsDetail =>
+      'Gli album compaiono qui dopo che li ascolti.';
 
   @override
   String get addToPlaylist => 'Aggiungi alla playlist';

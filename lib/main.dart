@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:just_audio_background/just_audio_background.dart';
@@ -8,9 +9,9 @@ import 'package:provider/provider.dart';
 import 'l10n/context_l10n.dart';
 import 'screens/gate.dart';
 import 'services/settings_store.dart';
-import 'state/download_controller.dart';
+import 'state/downloads.dart';
 import 'state/favorite_updates.dart';
-import 'state/karaoke_controller.dart';
+import 'state/karaoke.dart';
 import 'state/locale_controller.dart';
 import 'state/player_controller.dart';
 import 'state/playlist_updates.dart';
@@ -21,18 +22,20 @@ import 'theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await JustAudioBackground.init(
-    androidNotificationChannelId: 'com.subsonica.subsonica.audio',
-    androidNotificationChannelName: 'Playback',
-    androidNotificationChannelDescription: 'Playback controls',
-    androidNotificationOngoing: true,
-    androidStopForegroundOnPause: true,
-    androidNotificationIcon: 'drawable/ic_stat_subsonica',
-    notificationColor: AppColors.accent,
-    artDownscaleWidth: 512,
-    artDownscaleHeight: 512,
-    preloadArtwork: true,
-  );
+  if (!kIsWeb) {
+    await JustAudioBackground.init(
+      androidNotificationChannelId: 'com.subsonica.subsonica.audio',
+      androidNotificationChannelName: 'Playback',
+      androidNotificationChannelDescription: 'Playback controls',
+      androidNotificationOngoing: true,
+      androidStopForegroundOnPause: true,
+      androidNotificationIcon: 'drawable/ic_stat_subsonica',
+      notificationColor: AppColors.accent,
+      artDownscaleWidth: 512,
+      artDownscaleHeight: 512,
+      preloadArtwork: true,
+    );
+  }
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,

@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import '../models/download.dart';
 import '../models/library.dart';
 import '../services/download_store.dart';
+import '../services/file_download.dart';
 import '../services/lyrics_client.dart';
 import '../services/settings_store.dart';
 import '../services/subsonic_api.dart';

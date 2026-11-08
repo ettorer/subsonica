@@ -1,9 +1,8 @@
-import 'dart:io';
-
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
+import 'cover_file.dart';
 
 class CoverImage extends StatelessWidget {
   const CoverImage({
@@ -38,15 +37,7 @@ class CoverImage extends StatelessWidget {
 
   Widget _picture() {
     final path = filePath;
-    if (path != null) {
-      return Image.file(
-        File(path),
-        fit: BoxFit.cover,
-        width: double.infinity,
-        height: double.infinity,
-        errorBuilder: (context, _, _) => _Placeholder(icon: icon),
-      );
-    }
+    if (path != null) return localCoverImage(path, icon: icon);
     final imageUrl = url;
     if (imageUrl == null) return _Placeholder(icon: icon);
     return LayoutBuilder(

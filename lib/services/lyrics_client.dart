@@ -1,8 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:http/http.dart' as http;
+
+import 'io_error.dart';
 
 import '../models/library.dart';
 
@@ -278,10 +279,9 @@ class LyricsClient {
       return response;
     } on TimeoutException {
       return null;
-    } on SocketException {
-      return null;
-    } on http.ClientException {
-      return null;
+    } catch (error) {
+      if (isUnreachable(error)) return null;
+      rethrow;
     }
   }
 }

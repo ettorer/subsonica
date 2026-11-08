@@ -1,11 +1,13 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../state/download_controller.dart';
+import '../state/downloads.dart';
 import '../state/session_controller.dart';
 import '../widgets/app_mark.dart';
 import 'connection_screen.dart';
 import 'home_shell.dart';
+import 'sign_in_screen.dart';
 
 class Gate extends StatelessWidget {
   const Gate({super.key});
@@ -14,6 +16,11 @@ class Gate extends StatelessWidget {
   Widget build(BuildContext context) {
     final session = context.watch<SessionController>();
     final downloads = context.watch<DownloadController>();
+    if (kIsWeb) {
+      if (session.booting || !downloads.ready) return const _BootScreen();
+      if (!session.isConnected) return const SignInScreen();
+      return const HomeShell();
+    }
     if (session.booting || !downloads.ready) return const _BootScreen();
     if (session.holdAtConnection ||
         (!session.isConnected && !downloads.preferOffline)) {

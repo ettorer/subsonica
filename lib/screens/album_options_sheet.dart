@@ -1,10 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../l10n/context_l10n.dart';
 import '../models/library.dart';
 import '../services/subsonic_api.dart';
-import '../state/download_controller.dart';
+import '../state/downloads.dart';
 import '../state/rating_updates.dart';
 import '../state/session_controller.dart';
 import '../theme/app_colors.dart';
@@ -77,12 +78,14 @@ class _AlbumOptionsSheetState extends State<AlbumOptionsSheet> {
             ),
           ),
           RatingBar(rating: rating, onChanged: (next) => _rate(rating, next)),
-          const Divider(height: 1, color: AppColors.outline),
-          DownloadSheetTile(
-            downloaded: downloaded,
-            label: downloaded ? l10n.removeDownload : l10n.downloadAlbum,
-            onPressed: downloaded ? _remove : _download,
-          ),
+          if (!kIsWeb) ...[
+            const Divider(height: 1, color: AppColors.outline),
+            DownloadSheetTile(
+              downloaded: downloaded,
+              label: downloaded ? l10n.removeDownload : l10n.downloadAlbum,
+              onPressed: downloaded ? _remove : _download,
+            ),
+          ],
         ],
       ),
     );

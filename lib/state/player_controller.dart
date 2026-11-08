@@ -18,32 +18,10 @@ class PlayerController extends ChangeNotifier {
     _loopMode = _player.loopMode;
     _shuffleEnabled = _player.shuffleModeEnabled;
     _speed = _player.speed;
-    _stateSub = _player.playerStateStream.listen(_onPlayerState);
-    _indexSub = _player.currentIndexStream.listen(_onIndex);
-    _loopSub = _player.loopModeStream.listen(_onLoop);
-    _shuffleSub = _player.shuffleModeEnabledStream.listen(_onShuffle);
-    _speedSub = _player.speedStream.listen(_onSpeed);
-    _positionSub = _player
-        .createPositionStream(
-          steps: 400,
-          minPeriod: const Duration(milliseconds: 80),
-          maxPeriod: const Duration(milliseconds: 160),
-        )
-        .listen(_onPosition);
-    _durationSub = _player.durationStream.listen((value) {
-      if (_switchingMusic && (value == null || value == Duration.zero)) return;
-      durationListenable.value = value ?? Duration.zero;
-    });
-    _errorSub = _player.playbackEventStream.listen(
-      (_) {},
-      onError: (Object error, StackTrace _) {
-        if (error is PlayerInterruptedException) return;
-        _setError(_playbackMessage(error));
-      },
-    );
+    _bindPlayer();
   }
 
-  final AudioPlayer _player = AudioPlayer();
+  AudioPlayer _player = AudioPlayer();
   final positionListenable = ValueNotifier<Duration>(Duration.zero);
   final durationListenable = ValueNotifier<Duration>(Duration.zero);
 
@@ -75,15 +53,71 @@ class PlayerController extends ChangeNotifier {
   var _musicOnly = false;
   var _holdingIndex = false;
   var _siblingTicket = 0;
+  var _webPlayerUsed = false;
 
-  late final StreamSubscription<PlayerState> _stateSub;
-  late final StreamSubscription<int?> _indexSub;
-  late final StreamSubscription<LoopMode> _loopSub;
-  late final StreamSubscription<bool> _shuffleSub;
-  late final StreamSubscription<double> _speedSub;
-  late final StreamSubscription<Duration> _positionSub;
-  late final StreamSubscription<Duration?> _durationSub;
-  late final StreamSubscription<PlaybackEvent> _errorSub;
+  late StreamSubscription<PlayerState> _stateSub;
+  late StreamSubscription<int?> _indexSub;
+  late StreamSubscription<LoopMode> _loopSub;
+  late StreamSubscription<bool> _shuffleSub;
+  late StreamSubscription<double> _speedSub;
+  late StreamSubscription<Duration> _positionSub;
+  late StreamSubscription<Duration?> _durationSub;
+  late StreamSubscription<PlaybackEvent> _errorSub;
+
+  void _bindPlayer() {
+    _stateSub = _player.playerStateStream.listen(_onPlayerState);
+    _indexSub = _player.currentIndexStream.listen(_onIndex);
+    _loopSub = _player.loopModeStream.listen(_onLoop);
+    _shuffleSub = _player.shuffleModeEnabledStream.listen(_onShuffle);
+    _speedSub = _player.speedStream.listen(_onSpeed);
+    _positionSub = _player
+        .createPositionStream(
+          steps: 400,
+          minPeriod: const Duration(milliseconds: 80),
+          maxPeriod: const Duration(milliseconds: 160),
+        )
+        .listen(_onPosition);
+    _durationSub = _player.durationStream.listen((value) {
+      if (_switchingMusic && (value == null || value == Duration.zero)) return;
+      durationListenable.value = value ?? Duration.zero;
+    });
+    _errorSub = _player.playbackEventStream.listen(
+      (_) {},
+      onError: (Object error, StackTrace _) {
+        if (error is PlayerInterruptedException) return;
+        _setError(_playbackMessage(error));
+      },
+    );
+  }
+
+  /// The web player remembers the first playlist and will not replace it.
+  /// A new player is the only way to load a different album.
+  Future<void> _openWebPlaylist() async {
+    if (!kIsWeb) return;
+    if (!_webPlayerUsed) {
+      _webPlayerUsed = true;
+      return;
+    }
+    final speed = _speed;
+    final loop = _loopMode;
+    await _stateSub.cancel();
+    await _indexSub.cancel();
+    await _loopSub.cancel();
+    await _shuffleSub.cancel();
+    await _speedSub.cancel();
+    await _positionSub.cancel();
+    await _durationSub.cancel();
+    await _errorSub.cancel();
+    final old = _player;
+    _player = AudioPlayer();
+    _bindPlayer();
+    try {
+      await old.dispose();
+    } catch (_) {}
+    if (_disposed) return;
+    if (speed != 1) await _player.setSpeed(speed);
+    if (loop != LoopMode.off) await _player.setLoopMode(loop);
+  }
 
   bool get hasTrack => _current != null;
   Song? get current => _current;
@@ -191,6 +225,11 @@ class PlayerController extends ChangeNotifier {
     durationListenable.value = Duration(seconds: songs[safeIndex].duration);
     unawaited(_resolveSibling(songs[safeIndex]));
     _notify();
+
+    if (kIsWeb) {
+      await _openWebPlaylist();
+      if (_disposed || generation != _playGeneration) return;
+    }
 
     final sources = <AudioSource>[
       for (var i = 0; i < songs.length; i++)

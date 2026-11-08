@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../l10n/context_l10n.dart';
-import '../state/download_controller.dart';
+import '../state/downloads.dart';
 import '../widgets/album_card.dart';
 import '../widgets/message_page.dart';
 import '../widgets/song_tile.dart';

@@ -1,15 +1,17 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../l10n/context_l10n.dart';
 import '../theme/app_colors.dart';
-import '../state/download_controller.dart';
+import '../state/downloads.dart';
 import '../state/session_controller.dart';
 import '../widgets/library_tab_bar.dart';
 import '../widgets/mini_player.dart';
 import 'albums_tab.dart';
+import 'home_tab.dart';
 import 'artists_tab.dart';
 import 'downloads_screen.dart';
 import 'favorites_tab.dart';
@@ -76,7 +78,9 @@ class _HomeShellState extends State<HomeShell> {
         (!session.isConnected && downloads.hasCompleted);
     final l10n = context.l10n;
     final searching = !offline && _query.trim().isNotEmpty;
-    final tabs = LibraryTabBar.libraryItems(l10n);
+    final tabs = offline
+        ? LibraryTabBar.libraryItems(l10n)
+        : LibraryTabBar.onlineItems(l10n);
     return Scaffold(
       body: Column(
         children: [
@@ -91,7 +95,9 @@ class _HomeShellState extends State<HomeShell> {
                         ? Align(
                             alignment: Alignment.centerLeft,
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
                               child: Text(
                                 l10n.offlineLabel,
                                 style: const TextStyle(
@@ -103,55 +109,56 @@ class _HomeShellState extends State<HomeShell> {
                             ),
                           )
                         : TextField(
-                      controller: _search,
-                      focusNode: _searchFocus,
-                      textInputAction: TextInputAction.search,
-                      onTapOutside: (_) => _searchFocus.unfocus(),
-                      onChanged: _onSearchChanged,
-                      onSubmitted: (value) {
-                        _debounce?.cancel();
-                        setState(() {
-                          _query = value;
-                          _submittedQuery = value.trim();
-                        });
-                      },
-                      decoration: InputDecoration(
-                        hintText: l10n.search,
-                        prefixIcon: const Icon(
-                          Icons.search,
-                          color: AppColors.muted,
-                        ),
-                        suffixIcon: _query.isEmpty
-                            ? null
-                            : IconButton(
-                                tooltip: l10n.clear,
-                                onPressed: _clearSearch,
-                                icon: const Icon(
-                                  Icons.close,
-                                  color: AppColors.muted,
-                                ),
+                            controller: _search,
+                            focusNode: _searchFocus,
+                            textInputAction: TextInputAction.search,
+                            onTapOutside: (_) => _searchFocus.unfocus(),
+                            onChanged: _onSearchChanged,
+                            onSubmitted: (value) {
+                              _debounce?.cancel();
+                              setState(() {
+                                _query = value;
+                                _submittedQuery = value.trim();
+                              });
+                            },
+                            decoration: InputDecoration(
+                              hintText: l10n.search,
+                              prefixIcon: const Icon(
+                                Icons.search,
+                                color: AppColors.muted,
                               ),
-                        filled: true,
-                        fillColor: AppColors.surface,
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(
-                          vertical: 12,
-                        ),
-                        border: _searchBorder(focused: false),
-                        enabledBorder: _searchBorder(focused: false),
-                        focusedBorder: _searchBorder(focused: true),
-                      ),
-                    ),
+                              suffixIcon: _query.isEmpty
+                                  ? null
+                                  : IconButton(
+                                      tooltip: l10n.clear,
+                                      onPressed: _clearSearch,
+                                      icon: const Icon(
+                                        Icons.close,
+                                        color: AppColors.muted,
+                                      ),
+                                    ),
+                              filled: true,
+                              fillColor: AppColors.surface,
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(
+                                vertical: 12,
+                              ),
+                              border: _searchBorder(focused: false),
+                              enabledBorder: _searchBorder(focused: false),
+                              focusedBorder: _searchBorder(focused: true),
+                            ),
+                          ),
                   ),
                   PopupMenuButton<String>(
                     tooltip: l10n.options,
                     icon: const Icon(Icons.more_vert, color: AppColors.text),
                     onSelected: (value) => _openMenu(context, value),
                     itemBuilder: (context) => [
-                      PopupMenuItem(
-                        value: 'downloads',
-                        child: Text(l10n.downloadsTitle),
-                      ),
+                      if (!kIsWeb)
+                        PopupMenuItem(
+                          value: 'downloads',
+                          child: Text(l10n.downloadsTitle),
+                        ),
                       if (offline)
                         PopupMenuItem(
                           value: 'connection',
@@ -161,6 +168,11 @@ class _HomeShellState extends State<HomeShell> {
                         value: 'settings',
                         child: Text(l10n.settingsTitle),
                       ),
+                      if (kIsWeb)
+                        PopupMenuItem(
+                          value: 'logout',
+                          child: Text(l10n.logOut),
+                        ),
                     ],
                   ),
                 ],
@@ -176,16 +188,17 @@ class _HomeShellState extends State<HomeShell> {
                   child: offline
                       ? OfflineLibrary(tab: _offlineTab)
                       : IndexedStack(
-                    index: _tab,
-                    children: const [
-                      AlbumsTab(),
-                      TracksTab(),
-                      ArtistsTab(),
-                      GenresTab(),
-                      PlaylistsTab(),
-                      FavoritesTab(),
-                    ],
-                  ),
+                          index: _tab,
+                          children: const [
+                            HomeTab(),
+                            AlbumsTab(),
+                            TracksTab(),
+                            ArtistsTab(),
+                            GenresTab(),
+                            PlaylistsTab(),
+                            FavoritesTab(),
+                          ],
+                        ),
                 ),
                 if (searching) SearchScreen(query: _submittedQuery),
               ],
@@ -226,9 +239,11 @@ class _HomeShellState extends State<HomeShell> {
           MaterialPageRoute<void>(builder: (_) => const DownloadsScreen()),
         );
       case 'settings':
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
-        );
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute<void>(builder: (_) => const SettingsScreen()));
+      case 'logout':
+        context.read<SessionController>().signOut();
       case 'connection':
         context.read<SessionController>().openConnection();
     }

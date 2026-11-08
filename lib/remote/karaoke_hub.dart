@@ -14,6 +14,7 @@ import '../services/subsonic_api.dart';
 import '../state/download_controller.dart';
 import '../state/player_controller.dart';
 import 'karaoke_page.dart';
+import 'karaoke_tls.dart';
 import 'lrc.dart';
 
 class KaraokeHub {
@@ -22,6 +23,7 @@ class KaraokeHub {
   }
 
   static const port = 8765;
+  static const securePort = 8766;
 
   final PlayerController _player;
   final DownloadController _downloads;
@@ -30,8 +32,10 @@ class KaraokeHub {
   final Set<WebSocketChannel> _clients = {};
 
   HttpServer? _server;
+  HttpServer? _secureServer;
   late final Handler _socket;
   String? url;
+  String? secureUrl;
   String? _songId;
   Map<String, Object?>? _document;
   String? _cachedCoverId;
@@ -54,11 +58,30 @@ class KaraokeHub {
       InternetAddress.anyIPv4,
       port,
     );
+    final context = await loadKaraokeSecurityContext();
+    if (context != null) {
+      try {
+        hub._secureServer = await shelf_io.serve(
+          hub._handle,
+          InternetAddress.anyIPv4,
+          securePort,
+          securityContext: context,
+        );
+      } catch (_) {
+        hub._secureServer = null;
+      }
+    }
     final song = hub._player.current;
     hub._songId = song?.id;
     hub._player.addListener(hub._onPlayer);
     hub._player.positionListenable.addListener(hub._onPosition);
-    hub.url = await lanUrl(port);
+    final address = await _lanAddress();
+    if (address != null) {
+      hub.url = 'http://$address:$port/';
+      if (hub._secureServer != null) {
+        hub.secureUrl = 'https://$address:$securePort/';
+      }
+    }
     if (song != null) unawaited(hub._loadLyrics(song));
     return hub;
   }
@@ -332,6 +355,7 @@ class KaraokeHub {
     for (final channel in channels) {
       await channel.sink.close();
     }
+    await _secureServer?.close(force: true);
     await _server?.close(force: true);
     _lyrics.close();
   }
@@ -371,12 +395,6 @@ String _imageType(List<int> bytes, String? header) {
     return 'image/webp';
   }
   return 'image/jpeg';
-}
-
-Future<String?> lanUrl(int port) async {
-  final address = await _lanAddress();
-  if (address == null) return null;
-  return 'http://$address:$port/';
 }
 
 Future<String?> _lanAddress() async {

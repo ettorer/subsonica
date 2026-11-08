@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_lyric/flutter_lyric.dart';
 import 'package:provider/provider.dart';
@@ -7,7 +8,7 @@ import 'package:provider/provider.dart';
 import '../l10n/context_l10n.dart';
 import '../models/library.dart';
 import '../services/lyrics_client.dart';
-import '../state/download_controller.dart';
+import '../state/downloads.dart';
 import '../state/lyric_progress.dart';
 import '../state/player_controller.dart';
 import '../state/session_controller.dart';
@@ -41,26 +42,28 @@ class _LyricsScreenState extends State<LyricsScreen> {
 
   static final _preset = LyricPresets.appleMusic.copyWith(
     highlight: const LyricHighlight.solid(AppColors.accent, tailFadeWidth: 12),
-    textStyle: const TextStyle(
-      fontSize: 18,
+    textStyle: TextStyle(
+      fontSize: kIsWeb ? 24 : 18,
       fontWeight: FontWeight.w500,
       height: 1.28,
-      color: Color(0xD9F6F3EC),
+      color: const Color(0xD9F6F3EC),
     ),
-    activeTextStyle: const TextStyle(
-      fontSize: 20,
+    activeTextStyle: TextStyle(
+      fontSize: kIsWeb ? 26 : 20,
       fontWeight: FontWeight.w700,
       height: 1.28,
       color: AppColors.text,
     ),
+    textAlign: TextAlign.center,
+    contentAlignment: LyricContentAlignment.center,
     padding: const EdgeInsets.symmetric(horizontal: 20),
     lineSpacing: 12,
     activeAnchor: const LyricAnchor.fraction(
-      .22,
+      .5,
       target: LyricAnchorTarget.mainText,
     ),
     selectionAnchor: const LyricAnchor.fraction(
-      .22,
+      .5,
       target: LyricAnchorTarget.mainText,
     ),
     edgeFade: const LyricEdgeFade.fraction(top: .04, bottom: .05),
@@ -330,17 +333,29 @@ class _PlainLyrics extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-          height: 1.45,
-          color: AppColors.text,
-        ),
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: (constraints.maxHeight - 20).clamp(0, double.infinity),
+            ),
+            child: Center(
+              child: Text(
+                text,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: kIsWeb ? 24 : 18,
+                  fontWeight: FontWeight.w600,
+                  height: 1.45,
+                  color: AppColors.text,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
