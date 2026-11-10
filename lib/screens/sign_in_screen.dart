@@ -7,7 +7,6 @@ import '../models/server_config.dart';
 import '../state/session_controller.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_mark.dart';
-import 'settings_screen.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -34,6 +33,19 @@ class _SignInScreenState extends State<SignInScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    final session = context.read<SessionController>();
+    _username.text = session.webUsername ?? '';
+    _password.text = session.webPassword ?? '';
+    final message = session.connectionError;
+    if (message != null && message.isNotEmpty) {
+      _error = localizeMessage(context.l10n, message);
+      if (_addressFailed(message)) _askForUrl = true;
+    }
+  }
+
+  @override
   void dispose() {
     _url.dispose();
     _username.dispose();
@@ -42,9 +54,9 @@ class _SignInScreenState extends State<SignInScreen> {
   }
 
   Future<void> _submit(String? savedUrl) async {
-    final stored = _usableServer(savedUrl);
     final typed = normalizeServerUrl(_url.text);
-    final baseUrl = stored ?? typed ?? _pageServer;
+    final stored = _usableServer(savedUrl);
+    final baseUrl = typed ?? stored ?? _pageServer;
     final username = _username.text.trim();
     if (username.isEmpty) {
       setState(() => _error = context.l10n.enterUsername);
@@ -63,12 +75,7 @@ class _SignInScreenState extends State<SignInScreen> {
     setState(() {
       _busy = false;
       _error = error == null ? null : localizeMessage(context.l10n, error);
-      if (error != null &&
-          stored == null &&
-          typed == null &&
-          _addressFailed(error)) {
-        _askForUrl = true;
-      }
+      if (error != null && _addressFailed(error)) _askForUrl = true;
     });
   }
 
@@ -79,110 +86,103 @@ class _SignInScreenState extends State<SignInScreen> {
     );
     final l10n = context.l10n;
     return Scaffold(
-      appBar: AppBar(
-        actions: [
-          IconButton(
-            tooltip: l10n.settingsTitle,
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
-              );
-            },
-            icon: const Icon(Icons.settings_outlined),
-          ),
-        ],
-      ),
+      appBar: AppBar(),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 440),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Center(child: AppMark()),
-                  const SizedBox(height: 28),
-                  Text(
-                    l10n.signIn,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 24),
-                  if (savedUrl == null && _askForUrl) ...[
+            child: Transform.translate(
+              offset: const Offset(0, -100),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 440),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Center(child: AppMark()),
+                    const SizedBox(height: 28),
+                    Text(
+                      l10n.signIn,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    const SizedBox(height: 24),
+                    if (_askForUrl) ...[
+                      TextField(
+                        controller: _url,
+                        keyboardType: TextInputType.url,
+                        autocorrect: false,
+                        enableSuggestions: false,
+                        textInputAction: TextInputAction.next,
+                        autofillHints: const [AutofillHints.url],
+                        onChanged: (_) => _clearError(),
+                        decoration: InputDecoration(
+                          labelText: l10n.serverUrl,
+                          hintText: _pageServer,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     TextField(
-                      controller: _url,
-                      keyboardType: TextInputType.url,
+                      controller: _username,
                       autocorrect: false,
                       enableSuggestions: false,
                       textInputAction: TextInputAction.next,
-                      autofillHints: const [AutofillHints.url],
+                      autofillHints: const [AutofillHints.username],
                       onChanged: (_) => _clearError(),
-                      decoration: InputDecoration(
-                        labelText: l10n.serverUrl,
-                        hintText: _pageServer,
-                      ),
+                      decoration: InputDecoration(labelText: l10n.username),
                     ),
                     const SizedBox(height: 12),
-                  ],
-                  TextField(
-                    controller: _username,
-                    autocorrect: false,
-                    enableSuggestions: false,
-                    textInputAction: TextInputAction.next,
-                    autofillHints: const [AutofillHints.username],
-                    onChanged: (_) => _clearError(),
-                    decoration: InputDecoration(labelText: l10n.username),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _password,
-                    obscureText: _obscure,
-                    autocorrect: false,
-                    enableSuggestions: false,
-                    textInputAction: TextInputAction.done,
-                    autofillHints: const [AutofillHints.password],
-                    onChanged: (_) => _clearError(),
-                    onSubmitted: (_) {
-                      if (!_busy) _submit(savedUrl);
-                    },
-                    decoration: InputDecoration(
-                      labelText: l10n.password,
-                      suffixIcon: IconButton(
-                        tooltip: _obscure
-                            ? l10n.showPassword
-                            : l10n.hidePassword,
-                        onPressed: () => setState(() => _obscure = !_obscure),
-                        icon: Icon(
-                          _obscure
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined,
+                    TextField(
+                      controller: _password,
+                      obscureText: _obscure,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      textInputAction: TextInputAction.done,
+                      autofillHints: const [AutofillHints.password],
+                      onChanged: (_) => _clearError(),
+                      onSubmitted: (_) {
+                        if (!_busy) _submit(savedUrl);
+                      },
+                      decoration: InputDecoration(
+                        labelText: l10n.password,
+                        suffixIcon: IconButton(
+                          tooltip: _obscure
+                              ? l10n.showPassword
+                              : l10n.hidePassword,
+                          onPressed: () => setState(() => _obscure = !_obscure),
+                          icon: Icon(
+                            _obscure
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  if (_error != null) ...[
-                    const SizedBox(height: 16),
-                    Text(
-                      _error!,
-                      style: const TextStyle(
-                        color: AppColors.danger,
-                        height: 1.35,
+                    if (_error != null) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        _error!,
+                        style: const TextStyle(
+                          color: AppColors.danger,
+                          height: 1.35,
+                        ),
                       ),
+                    ],
+                    const SizedBox(height: 20),
+                    FilledButton(
+                      onPressed: _busy ? null : () => _submit(savedUrl),
+                      child: _busy
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.4,
+                              ),
+                            )
+                          : Text(l10n.connect),
                     ),
                   ],
-                  const SizedBox(height: 20),
-                  FilledButton(
-                    onPressed: _busy ? null : () => _submit(savedUrl),
-                    child: _busy
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(strokeWidth: 2.4),
-                          )
-                        : Text(l10n.connect),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
@@ -212,7 +212,5 @@ bool _addressFailed(String error) {
       error == 'The server took too long to respond.' ||
       error == 'The secure connection failed.' ||
       error ==
-          'The server did not return a Subsonic response. Check the address.' ||
-      error == 'Something went wrong. Try again.' ||
-      error.startsWith('The server returned HTTP ');
+          'The server did not return a Subsonic response. Check the address.';
 }

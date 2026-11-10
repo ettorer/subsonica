@@ -243,7 +243,7 @@ class _HomeShellState extends State<HomeShell> {
           context,
         ).push(MaterialPageRoute<void>(builder: (_) => const SettingsScreen()));
       case 'logout':
-        context.read<SessionController>().signOut();
+        unawaited(context.read<SessionController>().signOut());
       case 'connection':
         context.read<SessionController>().openConnection();
     }

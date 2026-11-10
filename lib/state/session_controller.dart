@@ -17,6 +17,8 @@ class SessionController extends ChangeNotifier {
   ServerAbout? _server;
   String? _connectionError;
   String? _webServerUrl;
+  String? _webUsername;
+  String? _webPassword;
   bool _booting = true;
   bool _connecting = false;
   bool _holdAtConnection = false;
@@ -33,10 +35,23 @@ class SessionController extends ChangeNotifier {
   ServerAbout? get server => _server;
   String? get connectionError => _connectionError;
   String? get webServerUrl => _webServerUrl;
+  String? get webUsername => _webUsername;
+  String? get webPassword => _webPassword;
 
   Future<void> bootstrap() async {
     if (kIsWeb) {
       _webServerUrl = await _store.loadWebServerUrl();
+      final saved = await _store.loadWebCredentials();
+      _webUsername = saved?.username;
+      _webPassword = saved?.password;
+      final url = _webServerUrl;
+      if (url != null && saved != null) {
+        await signIn(
+          baseUrl: url,
+          username: saved.username,
+          password: saved.password,
+        );
+      }
       _booting = false;
       notifyListeners();
       return;
@@ -91,7 +106,10 @@ class SessionController extends ChangeNotifier {
     ).then((error) async {
       if (error != null) return error;
       _webServerUrl = baseUrl;
+      _webUsername = name;
+      _webPassword = password;
       await _store.saveWebServerUrl(baseUrl);
+      await _store.saveWebCredentials(username: name, password: password);
       return null;
     });
   }
@@ -103,6 +121,11 @@ class SessionController extends ChangeNotifier {
     }
     await _store.saveWebServerUrl(baseUrl);
     final changed = _config != null && _config!.baseUrl != baseUrl;
+    if (_webServerUrl != null && _webServerUrl != baseUrl) {
+      _webUsername = null;
+      _webPassword = null;
+      await _store.clearWebCredentials();
+    }
     _webServerUrl = baseUrl;
     if (changed) {
       _client?.close();
@@ -183,13 +206,16 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void signOut() {
+  Future<void> signOut() async {
     _client?.close();
     _client = null;
     _config = null;
     _server = null;
     _connectionError = null;
     _connecting = false;
+    _webUsername = null;
+    _webPassword = null;
+    await _store.clearWebCredentials();
     notifyListeners();
   }
 

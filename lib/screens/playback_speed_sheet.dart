@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../l10n/context_l10n.dart';
 import '../models/download.dart';
 import '../models/library.dart';
+import '../screens/collection_screen.dart';
 import '../services/subsonic_api.dart';
 import '../state/downloads.dart';
 import '../state/player_controller.dart';
@@ -49,6 +50,7 @@ class _PlaybackSpeedSheetState extends State<PlaybackSpeedSheet> {
     final offline = downloads.preferOffline;
     final connected = context.watch<SessionController>().client != null;
     final song = player.current;
+    final albumSong = player.lyricsTrack ?? song;
     final speed = (_drag ?? player.speed).clamp(_min, _max);
     final entry = song == null ? null : downloads.entryFor(song.id);
     final downloaded = entry?.isComplete == true;
@@ -179,6 +181,15 @@ class _PlaybackSpeedSheetState extends State<PlaybackSpeedSheet> {
               ),
             ],
           ],
+          if (albumSong != null) ...[
+            const Divider(height: 1, color: AppColors.outline),
+            ListTile(
+              contentPadding: const EdgeInsets.only(left: 8, right: 8),
+              leading: const Icon(Icons.album_rounded),
+              title: Text(l10n.showAlbum),
+              onTap: () => _showAlbum(albumSong),
+            ),
+          ],
           const Divider(height: 1, color: AppColors.outline),
           ListTile(
             contentPadding: const EdgeInsets.only(left: 8, right: 8),
@@ -279,6 +290,27 @@ class _PlaybackSpeedSheetState extends State<PlaybackSpeedSheet> {
   void _snack(String message) {
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _showAlbum(Song song) {
+    final albumId = song.albumId;
+    if (albumId == null || albumId.isEmpty) {
+      _snack(context.l10n.noAlbumPage);
+      return;
+    }
+    final navigator = Navigator.of(context);
+    navigator.pop();
+    navigator.push(
+      MaterialPageRoute<void>(
+        builder: (_) => CollectionScreen(
+          kind: CollectionKind.album,
+          id: albumId,
+          title: song.album.isEmpty ? 'Album' : song.album,
+          albumArtist: song.artist,
+          coverArtId: song.artworkId,
+        ),
+      ),
+    );
   }
 
   Future<void> _startRadio() async {

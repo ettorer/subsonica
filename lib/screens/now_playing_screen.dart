@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:provider/provider.dart';
@@ -17,6 +18,7 @@ import '../widgets/playback_slider.dart';
 import '../widgets/playlist_button.dart';
 
 void openNowPlaying(BuildContext context) {
+  if (kIsWeb) return;
   if (ModalRoute.of(context)?.settings.name == NowPlayingScreen.routeName) {
     return;
   }

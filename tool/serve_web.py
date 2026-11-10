@@ -30,13 +30,23 @@ class Handler(SimpleHTTPRequestHandler):
         if _is_api(self.path):
             self._proxy()
             return
+        self._static = True
         super().do_GET()
 
     def do_HEAD(self):
         if _is_api(self.path):
             self._proxy()
             return
+        self._static = True
         super().do_HEAD()
+
+    def end_headers(self):
+        if getattr(self, "_static", False):
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+            self.send_header("Pragma", "no-cache")
+            self.send_header("Expires", "0")
+            self._static = False
+        super().end_headers()
 
     def do_POST(self):
         if _is_api(self.path):

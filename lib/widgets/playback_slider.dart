@@ -6,7 +6,9 @@ import '../theme/app_colors.dart';
 import '../util/format.dart';
 
 class PlaybackSlider extends StatefulWidget {
-  const PlaybackSlider({super.key});
+  const PlaybackSlider({super.key, this.compact = false});
+
+  final bool compact;
 
   @override
   State<PlaybackSlider> createState() => _PlaybackSliderState();
@@ -32,13 +34,21 @@ class _PlaybackSliderState extends State<PlaybackSlider> {
             ? 1
             : duration.inMilliseconds;
         final value = shown.inMilliseconds.clamp(0, totalMs).toDouble();
+        final compact = widget.compact;
         return Row(
           children: [
-            _Clock(text: formatClock(shown), align: TextAlign.left),
+            _Clock(
+              text: formatClock(shown),
+              align: compact ? TextAlign.right : TextAlign.left,
+              tight: compact,
+            ),
             Expanded(
               child: SliderTheme(
                 data: SliderTheme.of(context).copyWith(
                   trackHeight: 3,
+                  padding: compact
+                      ? const EdgeInsets.symmetric(horizontal: 12)
+                      : null,
                   thumbShape: const RoundSliderThumbShape(
                     enabledThumbRadius: 7,
                   ),
@@ -63,7 +73,11 @@ class _PlaybackSliderState extends State<PlaybackSlider> {
                 ),
               ),
             ),
-            _Clock(text: formatClock(duration), align: TextAlign.right),
+            _Clock(
+              text: formatClock(duration),
+              align: compact ? TextAlign.left : TextAlign.right,
+              tight: compact,
+            ),
           ],
         );
       },
@@ -98,24 +112,24 @@ class MiniProgressBar extends StatelessWidget {
 }
 
 class _Clock extends StatelessWidget {
-  const _Clock({required this.text, required this.align});
+  const _Clock({required this.text, required this.align, this.tight = false});
 
   final String text;
   final TextAlign align;
+  final bool tight;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 52,
-      child: Text(
-        text,
-        textAlign: align,
-        style: const TextStyle(
-          color: AppColors.muted,
-          fontSize: 12,
-          fontFeatures: [FontFeature.tabularFigures()],
-        ),
+    final label = Text(
+      text,
+      textAlign: align,
+      style: const TextStyle(
+        color: AppColors.muted,
+        fontSize: 12,
+        fontFeatures: [FontFeature.tabularFigures()],
       ),
     );
+    if (tight) return label;
+    return SizedBox(width: 52, child: label);
   }
 }

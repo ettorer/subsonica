@@ -135,6 +135,17 @@ class SettingsStore {
     return _storage.write(key: _urlKey, value: url);
   }
 
+  Future<({String username, String password})?> loadWebCredentials() async {
+    return null;
+  }
+
+  Future<void> saveWebCredentials({
+    required String username,
+    required String password,
+  }) async {}
+
+  Future<void> clearWebCredentials() async {}
+
   Future<void> clear() async {
     await _storage.delete(key: _urlKey);
     await _storage.delete(key: _usernameKey);

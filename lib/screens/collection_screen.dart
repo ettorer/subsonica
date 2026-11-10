@@ -343,7 +343,9 @@ class _CollectionScreenState extends State<CollectionScreen> {
                     ),
                   ),
                 ),
-                const MiniPlayerSlot(),
+                MiniPlayerSlot(
+                  transport: kIsWeb && widget.kind != CollectionKind.genre,
+                ),
               ],
             ),
     );
@@ -533,7 +535,7 @@ class _WebAlbumBody extends StatelessWidget {
             ],
           ),
         ),
-        const MiniPlayerSlot(),
+        const MiniPlayerSlot(transport: true),
       ],
     );
   }

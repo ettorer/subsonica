@@ -43,6 +43,16 @@ class ServerAbout {
   }
 }
 
+String serverStatusMessage(int statusCode) {
+  if (statusCode == 502 ||
+      statusCode == 503 ||
+      statusCode == 504 ||
+      statusCode == 530) {
+    return 'Cannot reach the server. Check the address.';
+  }
+  return 'The server returned HTTP $statusCode.';
+}
+
 String describeError(Object error) {
   if (error is SubsonicException) return error.message;
   if (error is TimeoutException) {
@@ -640,9 +650,7 @@ class SubsonicClient {
           .get(_uri(view, params, json: true))
           .timeout(timeout);
       if (response.statusCode != 200) {
-        throw SubsonicException(
-          'The server returned HTTP ${response.statusCode}.',
-        );
+        throw SubsonicException(serverStatusMessage(response.statusCode));
       }
       return unwrapSubsonic(response.body);
     } on SubsonicException {
@@ -673,9 +681,7 @@ class SubsonicClient {
           .get(_uriRepeated(view, params))
           .timeout(timeout);
       if (response.statusCode != 200) {
-        throw SubsonicException(
-          'The server returned HTTP ${response.statusCode}.',
-        );
+        throw SubsonicException(serverStatusMessage(response.statusCode));
       }
       return unwrapSubsonic(response.body);
     } on SubsonicException {

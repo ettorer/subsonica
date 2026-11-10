@@ -1,4 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:subsonica/models/server_config.dart';
 import 'package:subsonica/services/subsonic_api.dart';
 
@@ -184,4 +188,62 @@ void main() {
     expect(artists.single.artists.single.name, 'Miles Davis');
     expect(artists.single.artists.single.albumCount, 4);
   });
+
+  test('a missing page is not a connection failure', () async {
+    final client = _client(http.Response('missing', 404));
+    addTearDown(client.close);
+    expect(
+      await _pingError(client),
+      'The server returned HTTP 404.',
+    );
+  });
+
+  test('a stopped Navidrome is reported as unreachable', () async {
+    for (final status in [502, 503, 504, 530]) {
+      final client = _client(http.Response('down', status));
+      addTearDown(client.close);
+      expect(
+        await _pingError(client),
+        'Cannot reach the server. Check the address.',
+      );
+    }
+  });
+
+  test('a timed out request is a connection failure', () async {
+    final client = SubsonicClient(
+      const ServerConfig(
+        baseUrl: 'http://music.example',
+        username: 'joe',
+        password: 'secret',
+      ),
+      salt: 'c19b2d',
+      httpClient: MockClient((request) => throw TimeoutException('slow')),
+    );
+    addTearDown(client.close);
+    expect(
+      await _pingError(client),
+      'The server took too long to respond.',
+    );
+  });
+}
+
+SubsonicClient _client(http.Response response) {
+  return SubsonicClient(
+    const ServerConfig(
+      baseUrl: 'http://music.example',
+      username: 'joe',
+      password: 'secret',
+    ),
+    salt: 'c19b2d',
+    httpClient: MockClient((request) async => response),
+  );
+}
+
+Future<String> _pingError(SubsonicClient client) async {
+  try {
+    await client.ping();
+  } catch (error) {
+    return describeError(error);
+  }
+  fail('ping should have failed');
 }
