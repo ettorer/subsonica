@@ -22,6 +22,14 @@ class LibraryTabBar extends StatelessWidget {
     ];
   }
 
+  static List<(IconData, IconData, String)> offlineItems(AppLocalizations l10n) {
+    return [
+      (Icons.album_outlined, Icons.album_rounded, l10n.tabAlbum),
+      (Icons.person_outline_rounded, Icons.person_rounded, l10n.tabArtist),
+      (Icons.music_note_outlined, Icons.music_note_rounded, l10n.tabTrack),
+    ];
+  }
+
   static List<(IconData, IconData, String)> libraryItems(
     AppLocalizations l10n,
   ) {

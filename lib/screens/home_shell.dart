@@ -79,7 +79,7 @@ class _HomeShellState extends State<HomeShell> {
     final l10n = context.l10n;
     final searching = !offline && _query.trim().isNotEmpty;
     final tabs = offline
-        ? LibraryTabBar.libraryItems(l10n)
+        ? LibraryTabBar.offlineItems(l10n)
         : LibraryTabBar.onlineItems(l10n);
     return Scaffold(
       body: Column(
@@ -212,7 +212,7 @@ class _HomeShellState extends State<HomeShell> {
                 const MiniPlayerSlot(safeBottom: false),
                 LibraryTabBar(
                   index: offline ? _offlineTab : _tab,
-                  items: offline ? tabs.take(3).toList() : tabs,
+                  items: tabs,
                   onSelected: (index) {
                     _searchFocus.unfocus();
                     setState(() {

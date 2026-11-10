@@ -21,8 +21,8 @@ class OfflineLibrary extends StatelessWidget {
   Widget build(BuildContext context) {
     final downloads = context.watch<DownloadController>();
     if (tab == 0) return _Albums(downloads: downloads);
-    if (tab == 1) return _Tracks(downloads: downloads);
-    return _Artists(downloads: downloads);
+    if (tab == 1) return _Artists(downloads: downloads);
+    return _Tracks(downloads: downloads);
   }
 }
 
