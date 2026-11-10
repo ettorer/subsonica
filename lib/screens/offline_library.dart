@@ -74,86 +74,205 @@ class _Albums extends StatelessWidget {
   }
 }
 
-class _Tracks extends StatelessWidget {
+class _Tracks extends StatefulWidget {
   const _Tracks({required this.downloads});
 
   final DownloadController downloads;
 
   @override
+  State<_Tracks> createState() => _TracksState();
+}
+
+class _TracksState extends State<_Tracks> {
+  var _query = '';
+
+  @override
   Widget build(BuildContext context) {
-    final songs = downloads.libraryTracks;
-    if (songs.isEmpty) {
-      return MessagePage(
-        icon: Icons.download_rounded,
-        title: context.l10n.noDownloadedTracks,
-        detail: context.l10n.noDownloadedTracksDetail,
-      );
-    }
-    return CustomScrollView(
-      slivers: [
-        SongSliver(songs: songs, queueTitle: context.l10n.downloadsTitle),
+    final allSongs = widget.downloads.libraryTracks;
+    final query = _query.trim().toLowerCase();
+    final songs = query.isEmpty
+        ? allSongs
+        : allSongs
+              .where(
+                (song) =>
+                    song.title.toLowerCase().contains(query) ||
+                    song.artist.toLowerCase().contains(query) ||
+                    song.album.toLowerCase().contains(query),
+              )
+              .toList();
+    return Column(
+      children: [
+        _OfflineSearchField(
+          onChanged: (value) => setState(() => _query = value),
+        ),
+        Expanded(
+          child: allSongs.isEmpty
+              ? MessagePage(
+                  icon: Icons.download_rounded,
+                  title: context.l10n.noDownloadedTracks,
+                  detail: context.l10n.noDownloadedTracksDetail,
+                )
+              : songs.isEmpty
+              ? MessagePage(
+                  icon: Icons.search_off_rounded,
+                  title: context.l10n.noResults,
+                )
+              : CustomScrollView(
+                  slivers: [
+                    SongSliver(
+                      songs: songs,
+                      queueTitle: context.l10n.downloadsTitle,
+                    ),
+                  ],
+                ),
+        ),
       ],
     );
   }
 }
 
-class _Artists extends StatelessWidget {
+class _Artists extends StatefulWidget {
   const _Artists({required this.downloads});
 
   final DownloadController downloads;
 
   @override
+  State<_Artists> createState() => _ArtistsState();
+}
+
+class _ArtistsState extends State<_Artists> {
+  var _query = '';
+
+  @override
   Widget build(BuildContext context) {
-    final artists = downloads.libraryArtists;
-    if (artists.isEmpty) {
-      return MessagePage(
-        icon: Icons.person_outline_rounded,
-        title: context.l10n.noArtists,
-        detail: context.l10n.noArtistsYet,
-      );
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.only(bottom: 12),
-      itemCount: artists.length,
-      itemBuilder: (context, index) {
-        final artist = artists[index];
-        final letter = artistLetter(artist.name);
-        final showLetter =
-            index == 0 || artistLetter(artists[index - 1].name) != letter;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (showLetter)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                child: Text(
-                  letter,
-                  style: const TextStyle(
-                    color: AppColors.accent,
-                    fontWeight: FontWeight.w700,
-                  ),
+    final allArtists = widget.downloads.libraryArtists;
+    final query = _query.trim().toLowerCase();
+    final artists = query.isEmpty
+        ? allArtists
+        : allArtists
+              .where((artist) => artist.name.toLowerCase().contains(query))
+              .toList();
+    return Column(
+      children: [
+        _OfflineSearchField(
+          onChanged: (value) => setState(() => _query = value),
+        ),
+        Expanded(
+          child: allArtists.isEmpty
+              ? MessagePage(
+                  icon: Icons.person_outline_rounded,
+                  title: context.l10n.noArtists,
+                  detail: context.l10n.noArtistsYet,
+                )
+              : artists.isEmpty
+              ? MessagePage(
+                  icon: Icons.search_off_rounded,
+                  title: context.l10n.noResults,
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  itemCount: artists.length,
+                  itemBuilder: (context, index) {
+                    final artist = artists[index];
+                    final letter = artistLetter(artist.name);
+                    final showLetter =
+                        index == 0 ||
+                        artistLetter(artists[index - 1].name) != letter;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (showLetter)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                            child: Text(
+                              letter,
+                              style: const TextStyle(
+                                color: AppColors.accent,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: AppColors.surfaceHigh,
+                            foregroundColor: AppColors.accent,
+                            child: Text(
+                              artist.name.characters.first.toUpperCase(),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          title: Text(
+                            artist.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(
+                            formatAlbumCount(context.l10n, artist.albumCount),
+                          ),
+                          onTap: () => openArtist(context, artist),
+                        ),
+                      ],
+                    );
+                  },
                 ),
-              ),
-            ListTile(
-              leading: CircleAvatar(
-                backgroundColor: AppColors.surfaceHigh,
-                foregroundColor: AppColors.accent,
-                child: Text(
-                  artist.name.characters.first.toUpperCase(),
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+      ],
+    );
+  }
+}
+
+class _OfflineSearchField extends StatefulWidget {
+  const _OfflineSearchField({required this.onChanged});
+
+  final ValueChanged<String> onChanged;
+
+  @override
+  State<_OfflineSearchField> createState() => _OfflineSearchFieldState();
+}
+
+class _OfflineSearchFieldState extends State<_OfflineSearchField> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      child: TextField(
+        controller: _controller,
+        onChanged: widget.onChanged,
+        onTapOutside: (_) => FocusScope.of(context).unfocus(),
+        decoration: InputDecoration(
+          hintText: context.l10n.search,
+          prefixIcon: const Icon(Icons.search, color: AppColors.muted),
+          suffixIcon: _controller.text.isEmpty
+              ? null
+              : IconButton(
+                  tooltip: context.l10n.clear,
+                  onPressed: () {
+                    _controller.clear();
+                    setState(() {});
+                    widget.onChanged('');
+                  },
+                  icon: const Icon(Icons.close, color: AppColors.muted),
                 ),
-              ),
-              title: Text(
-                artist.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              subtitle: Text(formatAlbumCount(context.l10n, artist.albumCount)),
-              onTap: () => openArtist(context, artist),
-            ),
-          ],
-        );
-      },
+          filled: true,
+          fillColor: AppColors.surface,
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(vertical: 12),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide.none,
+          ),
+        ),
+      ),
     );
   }
 }
