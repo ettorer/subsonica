@@ -51,6 +51,39 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadsTitle => 'Downloads';
 
   @override
+  String get scanPhoneMusic => 'Scan phone music';
+
+  @override
+  String get scanPhoneMusicNow => 'Scan phone music now';
+
+  @override
+  String get scanPhoneMusicDetail =>
+      'Read albums and tracks from the Music folder on this phone.';
+
+  @override
+  String get scanningPhoneMusic => 'Scanning the Music folder…';
+
+  @override
+  String phoneMusicFound(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count tracks',
+      one: '1 track',
+    );
+    return 'Found $_temp0.';
+  }
+
+  @override
+  String get phoneMusicEmpty => 'No music files were found.';
+
+  @override
+  String get phoneMusicDenied => 'Allow Subsonica to read music on this phone.';
+
+  @override
+  String get phoneMusicFailed => 'The phone music catalog could not be read.';
+
+  @override
   String onThisPhone(String size) {
     return '$size on this phone';
   }

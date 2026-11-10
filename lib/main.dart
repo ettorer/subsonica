@@ -19,6 +19,7 @@ import 'state/rating_updates.dart';
 import 'state/session_controller.dart';
 import 'theme/app_colors.dart';
 import 'theme/app_theme.dart';
+import 'util/phone_scan_gate.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -115,10 +116,44 @@ class _SubsonicaAppState extends State<SubsonicaApp> {
     final messenger = _messengerKey.currentState;
     final context = _messengerKey.currentContext;
     if (messenger == null || context == null) return;
+    final offerScan = _player.offerPhoneScan && phoneMusicScanAvailable;
+    final l10n = context.l10n;
     messenger
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        SnackBar(content: Text(localizeMessage(context.l10n, message))),
+        SnackBar(
+          content: Text(localizeMessage(l10n, message)),
+          duration: offerScan
+              ? const Duration(seconds: 8)
+              : const Duration(seconds: 4),
+          action: offerScan
+              ? SnackBarAction(
+                  label: l10n.scanPhoneMusicNow,
+                  textColor: AppColors.accent,
+                  onPressed: () {
+                    unawaited(_scanPhoneMusic());
+                  },
+                )
+              : null,
+        ),
+      );
+  }
+
+  Future<void> _scanPhoneMusic() async {
+    if (_downloads.scanningPhoneMusic) return;
+    final result = await _downloads.scanPhoneMusic();
+    if (!mounted) return;
+    final messenger = _messengerKey.currentState;
+    final pageContext = _messengerKey.currentContext;
+    if (messenger == null || pageContext == null || !pageContext.mounted) {
+      return;
+    }
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(phoneScanStatusMessage(pageContext.l10n, result)),
+        ),
       );
   }
 

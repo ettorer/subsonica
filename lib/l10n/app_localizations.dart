@@ -176,6 +176,54 @@ abstract class AppLocalizations {
   /// **'Downloads'**
   String get downloadsTitle;
 
+  /// No description provided for @scanPhoneMusic.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan phone music'**
+  String get scanPhoneMusic;
+
+  /// No description provided for @scanPhoneMusicNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan phone music now'**
+  String get scanPhoneMusicNow;
+
+  /// No description provided for @scanPhoneMusicDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Read albums and tracks from the Music folder on this phone.'**
+  String get scanPhoneMusicDetail;
+
+  /// No description provided for @scanningPhoneMusic.
+  ///
+  /// In en, this message translates to:
+  /// **'Scanning the Music folder…'**
+  String get scanningPhoneMusic;
+
+  /// No description provided for @phoneMusicFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Found {count, plural, =1{1 track} other{{count} tracks}}.'**
+  String phoneMusicFound(int count);
+
+  /// No description provided for @phoneMusicEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No music files were found.'**
+  String get phoneMusicEmpty;
+
+  /// No description provided for @phoneMusicDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow Subsonica to read music on this phone.'**
+  String get phoneMusicDenied;
+
+  /// No description provided for @phoneMusicFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The phone music catalog could not be read.'**
+  String get phoneMusicFailed;
+
   /// No description provided for @onThisPhone.
   ///
   /// In en, this message translates to:

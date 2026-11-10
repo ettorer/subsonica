@@ -41,7 +41,10 @@ class _AlbumControlsState extends State<AlbumControls> {
       favoriteTooltip: starred
           ? context.l10n.unfavoriteAlbum
           : context.l10n.favoriteAlbum,
-      onFavorite: enabled && !_starring ? () => _toggleFavorite(starred) : null,
+      onFavorite:
+          enabled && !_starring && !widget.albumId.startsWith('phone-album:')
+          ? () => _toggleFavorite(starred)
+          : null,
     );
   }
 
@@ -192,7 +195,9 @@ class PlaybackBar extends StatelessWidget {
           ),
           _IconControl(
             tooltip: favoriteTooltip,
-            icon: starred ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+            icon: starred
+                ? Icons.favorite_rounded
+                : Icons.favorite_border_rounded,
             color: starred ? AppColors.accent : AppColors.muted,
             onPressed: onFavorite,
           ),

@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../services/phone_scan_result.dart';
 import 'app_localizations.dart';
 
 export 'app_localizations.dart';
@@ -9,9 +10,8 @@ extension L10nContext on BuildContext {
 }
 
 String localizeMessage(AppLocalizations l10n, String message) {
-  final http = RegExp(
-    r'^The server returned HTTP (\d+)\.$',
-  ).firstMatch(message);
+  final http = RegExp(r'^The server returned HTTP (\d+)\.$')
+      .firstMatch(message);
   if (http != null) {
     return l10n.serverHttp(int.parse(http.group(1)!));
   }
@@ -43,6 +43,15 @@ String localizeMessage(AppLocalizations l10n, String message) {
     'Download failed' => l10n.downloadFailed,
     'Waiting' => l10n.waiting,
     _ => message,
+  };
+}
+
+String phoneScanStatusMessage(AppLocalizations l10n, PhoneScanResult result) {
+  return switch (result.status) {
+    PhoneScanStatus.found => l10n.phoneMusicFound(result.tracks),
+    PhoneScanStatus.empty => l10n.phoneMusicEmpty,
+    PhoneScanStatus.denied => l10n.phoneMusicDenied,
+    PhoneScanStatus.failed => l10n.phoneMusicFailed,
   };
 }
 

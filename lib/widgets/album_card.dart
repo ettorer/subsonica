@@ -18,7 +18,7 @@ class AlbumCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final client = context.read<SessionController>().client;
     final file = context.read<DownloadController>().coverFile(album.artworkId);
-    final cover = file == null
+    final cover = file == null && serverArtwork(album.artworkId)
         ? client?.coverUri(album.artworkId, size: 480)?.toString()
         : null;
     return Material(

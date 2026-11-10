@@ -97,7 +97,7 @@ class _SongOptionsButtonState extends State<SongOptionsButton> {
         value: 'favorite',
         icon: starred ? Icons.favorite_rounded : Icons.favorite_border_rounded,
         label: starred ? context.l10n.unfavorite : context.l10n.favorite,
-        enabled: client != null,
+        enabled: client != null && !widget.song.id.startsWith('phone:'),
       ),
       MenuChoice(
         value: 'queue',
@@ -108,9 +108,10 @@ class _SongOptionsButtonState extends State<SongOptionsButton> {
         value: 'playlist',
         icon: Icons.playlist_add_rounded,
         label: context.l10n.addToPlaylist,
-        enabled: client != null,
+        enabled: client != null && !widget.song.id.startsWith('phone:'),
       ),
-      if (!kIsWeb) _downloadChoice(entry),
+      if (!kIsWeb && !widget.song.id.startsWith('phone:'))
+        _downloadChoice(entry),
       MenuChoice(
         value: 'album',
         icon: Icons.album_outlined,

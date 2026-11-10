@@ -4,6 +4,11 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import 'cover_file.dart';
 
+bool serverArtwork(String? artworkId) {
+  if (artworkId == null || artworkId.isEmpty) return false;
+  return !artworkId.startsWith('phone-');
+}
+
 class CoverImage extends StatelessWidget {
   const CoverImage({
     super.key,

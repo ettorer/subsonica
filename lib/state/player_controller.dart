@@ -40,6 +40,7 @@ class PlayerController extends ChangeNotifier {
   var _disposed = false;
   var _errorId = 0;
   String? _error;
+  var _offerPhoneScan = false;
   String? _announcedKey;
   String? _scrobbledKey;
   Duration _lastPosition = Duration.zero;
@@ -85,7 +86,10 @@ class PlayerController extends ChangeNotifier {
       (_) {},
       onError: (Object error, StackTrace _) {
         if (error is PlayerInterruptedException) return;
-        _setError(_playbackMessage(error));
+        _setError(
+          _playbackMessage(error),
+          offerPhoneScan: _isPhoneTrack(_playingSong()),
+        );
       },
     );
   }
@@ -129,6 +133,7 @@ class PlayerController extends ChangeNotifier {
   double get speed => _speed;
   String? get error => _error;
   int get errorId => _errorId;
+  bool get offerPhoneScan => _offerPhoneScan;
 
   bool get buffering =>
       _processing == ProcessingState.loading ||
@@ -212,7 +217,7 @@ class PlayerController extends ChangeNotifier {
       await _guard(generation, () async {
         await _player.seek(Duration.zero, index: safeIndex);
         await _player.play();
-      });
+      }, played: songs[safeIndex]);
       return;
     }
 
@@ -256,7 +261,7 @@ class PlayerController extends ChangeNotifier {
         _notify();
       }
       await _player.play();
-    });
+    }, played: songs[safeIndex]);
   }
 
   /// Keeps the current track where it is and plays [songs] after it.
@@ -307,7 +312,10 @@ class PlayerController extends ChangeNotifier {
       return false;
     } catch (error) {
       if (generation != _playGeneration) return false;
-      _setError(_playbackMessage(error));
+      _setError(
+        _playbackMessage(error),
+        offerPhoneScan: upcoming.any(_isPhoneTrack),
+      );
       return false;
     }
   }
@@ -336,7 +344,10 @@ class PlayerController extends ChangeNotifier {
       return;
     } catch (error) {
       if (generation != _playGeneration) return;
-      _setError(_playbackMessage(error));
+      _setError(
+        _playbackMessage(error),
+        offerPhoneScan: songs.any(_isPhoneTrack),
+      );
       return;
     }
     if (generation != _playGeneration) return;
@@ -378,7 +389,12 @@ class PlayerController extends ChangeNotifier {
       duration: Duration(seconds: song.duration),
     );
     final local = _library?.audioPath(played.id);
-    if (local != null) return AudioSource.file(local, tag: tag);
+    if (local != null) {
+      final source = local.startsWith('content:')
+          ? AudioSource.uri(Uri.parse(local), tag: tag)
+          : AudioSource.file(local, tag: tag);
+      return source;
+    }
     return AudioSource.uri(_client!.streamUri(played.id), tag: tag);
   }
 
@@ -436,7 +452,12 @@ class PlayerController extends ChangeNotifier {
     } on PlayerInterruptedException {
       // The swap is rolled back below when the extra source is still in place.
     } catch (error) {
-      if (generation == _playGeneration) _setError(_playbackMessage(error));
+      if (generation == _playGeneration) {
+        _setError(
+          _playbackMessage(error),
+          offerPhoneScan: _isPhoneTrack(vocal) || _isPhoneTrack(audio),
+        );
+      }
     } finally {
       if (added && generation == _playGeneration) {
         try {
@@ -459,7 +480,7 @@ class PlayerController extends ChangeNotifier {
       } else {
         await _player.play();
       }
-    });
+    }, played: _current);
   }
 
   Future<void> stop() {
@@ -477,7 +498,11 @@ class PlayerController extends ChangeNotifier {
     _seekTarget = position;
     _seekHold = DateTime.now().add(const Duration(milliseconds: 1500));
     positionListenable.value = position;
-    return _guard(_playGeneration, () => _player.seek(position));
+    return _guard(
+      _playGeneration,
+      () => _player.seek(position),
+      played: _current,
+    );
   }
 
   Future<void> previous() {
@@ -494,13 +519,13 @@ class PlayerController extends ChangeNotifier {
         positionListenable.value = Duration.zero;
         await _player.seek(Duration.zero);
       }
-    });
+    }, played: _current);
   }
 
   Future<void> next() {
     if (!_player.hasNext) return Future.value();
     positionListenable.value = Duration.zero;
-    return _guard(_playGeneration, _player.seekToNext);
+    return _guard(_playGeneration, _player.seekToNext, played: _current);
   }
 
   Future<void> toggleShuffle() {
@@ -533,16 +558,31 @@ class PlayerController extends ChangeNotifier {
     return _guard(_playGeneration, () => _player.setLoopMode(next));
   }
 
-  Future<void> _guard(int generation, Future<void> Function() action) async {
+  Future<void> _guard(
+    int generation,
+    Future<void> Function() action, {
+    Song? played,
+  }) async {
     try {
       await action();
     } on PlayerInterruptedException {
       return;
     } catch (error) {
       if (generation != _playGeneration) return;
-      _setError(_playbackMessage(error));
+      _setError(_playbackMessage(error), offerPhoneScan: _isPhoneTrack(played));
     }
   }
+
+  Song? _playingSong() {
+    final index = _player.currentIndex;
+    if (index != null && index >= 0 && index < _queue.length) {
+      return _queue[index];
+    }
+    return _current;
+  }
+
+  bool _isPhoneTrack(Song? song) =>
+      song != null && song.id.startsWith('phone:');
 
   void _onPlayerState(PlayerState state) {
     if (state.playing == _playing && state.processingState == _processing) {
@@ -589,8 +629,11 @@ class PlayerController extends ChangeNotifier {
 
   Future<Song?> _findSibling(Song song) async {
     final wanted = musicOnlySiblingPath(song.path);
+    if (wanted == null) return null;
+    final local = _library?.songForPath(wanted);
+    if (local != null) return local;
     final client = _client;
-    if (wanted == null || client == null) return null;
+    if (client == null) return null;
     final albumId = song.albumId;
     if (albumId != null && albumId.isNotEmpty) {
       try {
@@ -677,6 +720,7 @@ class PlayerController extends ChangeNotifier {
   }
 
   void _scrobble(String id, {required bool submission}) {
+    if (id.startsWith('phone:')) return;
     if (_client == null || _library?.playFromDownloadsOnly == true) {
       _library?.queueScrobble(id, submission: submission);
       return;
@@ -684,8 +728,9 @@ class PlayerController extends ChangeNotifier {
     _client?.scrobble(id, submission: submission);
   }
 
-  void _setError(String message) {
+  void _setError(String message, {bool offerPhoneScan = false}) {
     _error = message;
+    _offerPhoneScan = offerPhoneScan;
     _errorId++;
     _notify();
   }

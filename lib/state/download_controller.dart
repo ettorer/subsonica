@@ -8,7 +8,12 @@ import '../models/download.dart';
 import '../models/library.dart';
 import '../services/download_store.dart';
 import '../services/file_download.dart';
+import '../services/local_artists.dart';
 import '../services/lyrics_client.dart';
+import '../services/phone_catalog.dart';
+import '../services/phone_music_scan.dart';
+import '../services/phone_music_store.dart';
+import '../services/phone_scan_result.dart';
 import '../services/settings_store.dart';
 import '../services/subsonic_api.dart';
 import 'local_tracks.dart';
@@ -18,20 +23,28 @@ class DownloadController extends ChangeNotifier implements LocalTracks {
 
   final SettingsStore _settings;
   final DownloadStore _store = DownloadStore();
+  final PhoneMusicStore _phone = PhoneMusicStore();
 
   final Map<String, DownloadEntry> _entries = {};
   final Map<String, String> _covers = {};
+  List<PhoneTrack> _phoneTracks = const [];
+  final Map<String, PhoneTrack> _phoneById = {};
+  final Map<String, Song> _phoneByPath = {};
+  Map<String, String> _phoneCovers = {};
 
   SubsonicClient? _client;
   var _ready = false;
   var _preferOffline = false;
   var _working = false;
   var _clientSeen = false;
+  var _phoneReady = false;
+  var _scanningPhoneMusic = false;
   String? _cancelSongId;
   DateTime _lastProgress = DateTime.fromMillisecondsSinceEpoch(0);
 
   bool get ready => _ready;
   bool get preferOffline => _preferOffline;
+  bool get scanningPhoneMusic => _scanningPhoneMusic;
   bool get hasCompleted => _entries.values.any((entry) => entry.isComplete);
 
   int get byteCount {
@@ -79,9 +92,7 @@ class DownloadController extends ChangeNotifier implements LocalTracks {
         ),
       );
     }
-    albums.sort(
-      (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-    );
+    albums.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     return albums;
   }
 
@@ -96,8 +107,31 @@ class DownloadController extends ChangeNotifier implements LocalTracks {
     return songs;
   }
 
+  List<Album> get libraryAlbums {
+    final list = [...albums, ...albumsFromPhoneTracks(_phoneTracks)];
+    list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    return list;
+  }
+
+  List<Song> get libraryTracks {
+    final songs = [...tracks, ...visiblePhoneTracks(_phoneTracks)];
+    songs.sort(
+      (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
+    );
+    return songs;
+  }
+
+  List<Artist> get libraryArtists => artistsFromAlbums(libraryAlbums);
+
+  Artist? artistById(String id) {
+    for (final artist in libraryArtists) {
+      if (artist.id == id) return artist;
+    }
+    return null;
+  }
+
   List<Song> songsForAlbum(String albumId) {
-    for (final album in albums) {
+    for (final album in [...albums, ...albumsFromPhoneTracks(_phoneTracks)]) {
       if (album.id == albumId) return album.songs;
     }
     return const [];
@@ -106,19 +140,31 @@ class DownloadController extends ChangeNotifier implements LocalTracks {
   DownloadEntry? entryFor(String songId) => _entries[songId];
 
   Future<LyricMatch?> savedLyrics(String songId) async {
+    final phone = _phoneById[songId];
+    if (phone != null) return _match(phone.lyricsJson);
     if (!_ready || audioPath(songId) == null) return null;
     final raw = await _store.readLyrics(songId);
-    if (raw == null || raw.isEmpty) return null;
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is! Map) return null;
-      return LyricMatch.fromJson(Map<String, Object?>.from(decoded));
-    } on FormatException {
-      return null;
-    }
+    return _match(raw);
   }
 
   Future<void> saveLyrics(String songId, LyricMatch match) async {
+    final phone = _phoneById[songId];
+    if (phone != null) {
+      if (!_phoneReady) return;
+      final json = jsonEncode(match.toJson());
+      await _phone.writeLyrics(songId, json);
+      final updated = PhoneTrack(
+        song: phone.song,
+        playUri: phone.playUri,
+        lyricsJson: json,
+      );
+      _phoneById[songId] = updated;
+      _phoneTracks = [
+        for (final item in _phoneTracks)
+          if (item.song.id == songId) updated else item,
+      ];
+      return;
+    }
     if (!_ready || audioPath(songId) == null) return;
     await _store.writeLyrics(songId, jsonEncode(match.toJson()));
   }
@@ -128,6 +174,15 @@ class DownloadController extends ChangeNotifier implements LocalTracks {
 
   @override
   String? audioPath(String songId) {
+    final phone = _phoneById[songId];
+    if (phone != null) {
+      if (phone.playUri.startsWith('content:')) return phone.playUri;
+      final path = phone.song.path;
+      if (path != null && path.isNotEmpty && File(path).existsSync()) {
+        return path;
+      }
+      return null;
+    }
     final entry = _entries[songId];
     final path = entry?.filePath;
     if (entry == null || !entry.isComplete || path == null) return null;
@@ -136,11 +191,42 @@ class DownloadController extends ChangeNotifier implements LocalTracks {
   }
 
   @override
+  Song? songForPath(String path) => _phoneByPath[path.toLowerCase()];
+
+  @override
   String? coverFile(String? coverId) {
     if (coverId == null || coverId.isEmpty) return null;
-    final path = _covers[coverId];
+    final path = _covers[coverId] ?? _phoneCovers[coverId];
     if (path == null || !File(path).existsSync()) return null;
     return path;
+  }
+
+  Future<PhoneScanResult> scanPhoneMusic() async {
+    if (!Platform.isAndroid || _scanningPhoneMusic) {
+      return const PhoneScanResult(PhoneScanStatus.failed);
+    }
+    _scanningPhoneMusic = true;
+    notifyListeners();
+    try {
+      if (!_phoneReady) {
+        await _phone.open();
+        _phoneReady = true;
+      }
+      final scanned = await readPhoneMusic();
+      if (scanned == null) {
+        return const PhoneScanResult(PhoneScanStatus.denied);
+      }
+      await _phone.replace(scanned.tracks, scanned.covers);
+      await _loadPhone();
+      final count = visiblePhoneTracks(_phoneTracks).length;
+      if (count == 0) return const PhoneScanResult(PhoneScanStatus.empty);
+      return PhoneScanResult(PhoneScanStatus.found, tracks: count);
+    } catch (_) {
+      return const PhoneScanResult(PhoneScanStatus.failed);
+    } finally {
+      _scanningPhoneMusic = false;
+      notifyListeners();
+    }
   }
 
   Future<void> init() async {
@@ -165,9 +251,42 @@ class DownloadController extends ChangeNotifier implements LocalTracks {
       }
     }
     _covers.addAll(await _store.loadCovers());
+    try {
+      await _phone.open();
+      _phoneReady = true;
+      await _loadPhone();
+    } catch (_) {
+      // The download catalog still works when the phone catalog cannot open.
+    }
     _ready = true;
     notifyListeners();
     if (_clientSeen) unawaited(_pump());
+  }
+
+  Future<void> _loadPhone() async {
+    _phoneTracks = await _phone.loadTracks();
+    _phoneById
+      ..clear()
+      ..addAll({for (final item in _phoneTracks) item.song.id: item});
+    _phoneByPath
+      ..clear()
+      ..addAll({
+        for (final item in _phoneTracks)
+          if (item.song.path != null && item.song.path!.isNotEmpty)
+            item.song.path!.toLowerCase(): item.song,
+      });
+    _phoneCovers = await _phone.loadCovers();
+  }
+
+  LyricMatch? _match(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return null;
+      return LyricMatch.fromJson(Map<String, Object?>.from(decoded));
+    } on FormatException {
+      return null;
+    }
   }
 
   void attach(SubsonicClient? client) {
@@ -219,8 +338,7 @@ class DownloadController extends ChangeNotifier implements LocalTracks {
   }
 
   Future<void> removeSong(String songId) async {
-    final downloading =
-        _entries[songId]?.status == DownloadStatus.downloading;
+    final downloading = _entries[songId]?.status == DownloadStatus.downloading;
     if (downloading) _cancelSongId = songId;
     final entry = _entries.remove(songId);
     await _store.deleteSong(songId);
@@ -315,7 +433,8 @@ class DownloadController extends ChangeNotifier implements LocalTracks {
             total: total,
           );
           final now = DateTime.now();
-          if (now.difference(_lastProgress) > const Duration(milliseconds: 250)) {
+          if (now.difference(_lastProgress) >
+              const Duration(milliseconds: 250)) {
             _lastProgress = now;
             notifyListeners();
           }

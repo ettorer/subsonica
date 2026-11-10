@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../l10n/context_l10n.dart';
 import '../models/library.dart';
 import '../services/subsonic_api.dart';
+import '../state/downloads.dart';
 import '../state/player_controller.dart';
 import '../state/session_controller.dart';
 import '../theme/app_colors.dart';
@@ -47,6 +48,18 @@ class _ArtistScreenState extends State<ArtistScreen> {
   }
 
   Future<void> _load() async {
+    if (widget.artistId.startsWith('local-artist:')) {
+      final artist = context.read<DownloadController>().artistById(
+        widget.artistId,
+      );
+      if (!mounted) return;
+      setState(() {
+        _artist = artist;
+        _loading = false;
+        _error = artist == null ? 'Artist not found.' : null;
+      });
+      return;
+    }
     final client = context.read<SessionController>().client;
     if (client == null) return;
     setState(() {
@@ -81,11 +94,12 @@ class _ArtistScreenState extends State<ArtistScreen> {
         icon: Icons.queue_music_rounded,
         label: context.l10n.addToQueue,
       ),
-      MenuChoice(
-        value: 'playlist',
-        icon: Icons.playlist_add_rounded,
-        label: context.l10n.addToPlaylist,
-      ),
+      if (context.read<SessionController>().client != null)
+        MenuChoice(
+          value: 'playlist',
+          icon: Icons.playlist_add_rounded,
+          label: context.l10n.addToPlaylist,
+        ),
     ]);
     if (!mounted || value == null) return;
     await _onAction(value);
@@ -120,8 +134,7 @@ class _ArtistScreenState extends State<ArtistScreen> {
 
   Future<List<Song>?> _collectTracks() async {
     final artist = _artist;
-    final client = context.read<SessionController>().client;
-    if (artist == null || client == null) return null;
+    if (artist == null) return null;
     final cached = artist.albums.every(
       (album) =>
           album.songs.isNotEmpty && album.songs.length >= album.songCount,
@@ -129,6 +142,8 @@ class _ArtistScreenState extends State<ArtistScreen> {
     if (cached) {
       return [for (final album in artist.albums) ...album.songs];
     }
+    final client = context.read<SessionController>().client;
+    if (client == null) return null;
 
     showDialog<void>(
       context: context,
@@ -185,6 +200,10 @@ class _ArtistScreenState extends State<ArtistScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.artistId.startsWith('local-artist:')) {
+      context.watch<DownloadController>();
+      _syncLocalArtist();
+    }
     final artist = _artist;
     return Scaffold(
       appBar: AppBar(
@@ -205,6 +224,39 @@ class _ArtistScreenState extends State<ArtistScreen> {
         ],
       ),
     );
+  }
+
+  void _syncLocalArtist() {
+    if (_loading) return;
+    final latest = context.read<DownloadController>().artistById(
+      widget.artistId,
+    );
+    if (_sameAlbums(_artist, latest)) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _loading) return;
+      final current = context.read<DownloadController>().artistById(
+        widget.artistId,
+      );
+      if (_sameAlbums(_artist, current)) return;
+      if (current == null) {
+        Navigator.of(context).pop();
+        return;
+      }
+      setState(() {
+        _artist = current;
+        _error = null;
+      });
+    });
+  }
+
+  bool _sameAlbums(Artist? left, Artist? right) {
+    final leftAlbums = left?.albums ?? const <Album>[];
+    final rightAlbums = right?.albums ?? const <Album>[];
+    if (leftAlbums.length != rightAlbums.length) return false;
+    for (var i = 0; i < leftAlbums.length; i++) {
+      if (leftAlbums[i].id != rightAlbums[i].id) return false;
+    }
+    return true;
   }
 
   Widget _body(Artist? artist) {

@@ -116,20 +116,24 @@ class _CollectionScreenState extends State<CollectionScreen> {
 
   Future<void> _load() async {
     final client = context.read<SessionController>().client;
+    final localAlbum =
+        widget.kind == CollectionKind.album &&
+        (client == null || widget.id.startsWith('phone-album:'));
+    if (localAlbum) {
+      if (!mounted) return;
+      final songs = withoutMusicOnly(
+        context.read<DownloadController>().songsForAlbum(widget.id),
+      );
+      setState(() {
+        _songs = songs;
+        _count = songs.length;
+        _loading = false;
+        _error = null;
+      });
+      return;
+    }
     if (client == null) {
       if (!mounted) return;
-      if (widget.kind == CollectionKind.album) {
-        final songs = withoutMusicOnly(
-          context.read<DownloadController>().songsForAlbum(widget.id),
-        );
-        setState(() {
-          _songs = songs;
-          _count = songs.length;
-          _loading = false;
-          _error = null;
-        });
-        return;
-      }
       setState(() {
         _loading = false;
         _error = context.l10n.connectToOpen;
@@ -218,6 +222,37 @@ class _CollectionScreenState extends State<CollectionScreen> {
     }
   }
 
+  void _syncPhoneAlbum(DownloadController downloads) {
+    if (!widget.id.startsWith('phone-album:')) return;
+    final latest = withoutMusicOnly(downloads.songsForAlbum(widget.id));
+    if (_sameSongs(_songs, latest)) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final current = withoutMusicOnly(
+        context.read<DownloadController>().songsForAlbum(widget.id),
+      );
+      if (_sameSongs(_songs, current)) return;
+      if (current.isEmpty) {
+        Navigator.of(context).pop();
+        return;
+      }
+      setState(() {
+        _songs = current;
+        _count = current.length;
+        _loading = false;
+        _error = null;
+      });
+    });
+  }
+
+  bool _sameSongs(List<Song> left, List<Song> right) {
+    if (left.length != right.length) return false;
+    for (var i = 0; i < left.length; i++) {
+      if (left[i].id != right[i].id) return false;
+    }
+    return true;
+  }
+
   IconData get _icon {
     return switch (widget.kind) {
       CollectionKind.album => Icons.album_rounded,
@@ -239,8 +274,9 @@ class _CollectionScreenState extends State<CollectionScreen> {
     }
     final client = context.read<SessionController>().client;
     final downloads = context.watch<DownloadController>();
+    _syncPhoneAlbum(downloads);
     final localCover = downloads.coverFile(_coverArtId);
-    final cover = localCover != null || _coverArtId == null
+    final cover = localCover != null || !serverArtwork(_coverArtId)
         ? null
         : client?.coverUri(_coverArtId, size: 800)?.toString();
     final width = MediaQuery.sizeOf(context).width;
@@ -249,7 +285,9 @@ class _CollectionScreenState extends State<CollectionScreen> {
     return Scaffold(
       appBar: AppBar(
         actions: [
-          if (widget.kind == CollectionKind.album && _songs.isNotEmpty)
+          if (widget.kind == CollectionKind.album &&
+              _songs.isNotEmpty &&
+              !widget.id.startsWith('phone-album:'))
             IconButton(
               tooltip: context.l10n.options,
               onPressed: () => openAlbumOptions(

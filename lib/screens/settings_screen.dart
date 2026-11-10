@@ -10,6 +10,7 @@ import '../state/locale_controller.dart';
 import '../state/session_controller.dart';
 import '../theme/app_colors.dart';
 import '../util/format.dart';
+import '../util/phone_scan_gate.dart';
 import '../widgets/mini_player.dart';
 import 'downloads_screen.dart';
 import 'profile_screen.dart';
@@ -67,6 +68,7 @@ class SettingsScreen extends StatelessWidget {
                       ? null
                       : (value) => downloads.setPreferOffline(value),
                 ),
+                const _PhoneMusicScanTile(),
                 const _KaraokeTile(),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
@@ -117,6 +119,42 @@ class SettingsScreen extends StatelessWidget {
           const MiniPlayerSlot(),
         ],
       ),
+    );
+  }
+}
+
+class _PhoneMusicScanTile extends StatelessWidget {
+  const _PhoneMusicScanTile();
+
+  @override
+  Widget build(BuildContext context) {
+    if (!phoneMusicScanAvailable) return const SizedBox.shrink();
+    final l10n = context.l10n;
+    final downloads = context.watch<DownloadController>();
+    final scanning = downloads.scanningPhoneMusic;
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Text(l10n.scanPhoneMusic),
+      subtitle: Text(
+        scanning ? l10n.scanningPhoneMusic : l10n.scanPhoneMusicDetail,
+        style: const TextStyle(color: AppColors.muted),
+      ),
+      trailing: scanning
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.folder_open_rounded),
+      onTap: scanning ? null : () => _scan(context, downloads),
+    );
+  }
+
+  Future<void> _scan(BuildContext context, DownloadController downloads) async {
+    final result = await downloads.scanPhoneMusic();
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(phoneScanStatusMessage(context.l10n, result))),
     );
   }
 }

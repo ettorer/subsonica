@@ -23,7 +23,7 @@ class _FavoriteButtonState extends State<FavoriteButton> {
   Future<void> _toggle() async {
     final client = context.read<SessionController>().client;
     final updates = context.read<FavoriteUpdates>();
-    if (client == null || _busy) return;
+    if (client == null || _busy || widget.song.id.startsWith('phone:')) return;
     final song = widget.song;
     final previous = updates.starredFor(song);
     final next = !previous;
@@ -34,12 +34,11 @@ class _FavoriteButtonState extends State<FavoriteButton> {
     } catch (error) {
       updates.setStarred(song.id, previous);
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
-            SnackBar(
-              content: Text(localizeMessage(context.l10n, describeError(error))),
-            ),
-          );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(localizeMessage(context.l10n, describeError(error))),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }

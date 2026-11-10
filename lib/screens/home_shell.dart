@@ -212,7 +212,7 @@ class _HomeShellState extends State<HomeShell> {
                 const MiniPlayerSlot(safeBottom: false),
                 LibraryTabBar(
                   index: offline ? _offlineTab : _tab,
-                  items: offline ? tabs.take(2).toList() : tabs,
+                  items: offline ? tabs.take(3).toList() : tabs,
                   onSelected: (index) {
                     _searchFocus.unfocus();
                     setState(() {

@@ -1,3 +1,5 @@
+import '../models/library.dart';
+
 abstract class LocalTracks {
   String? audioPath(String songId);
 
@@ -6,4 +8,6 @@ abstract class LocalTracks {
   bool get playFromDownloadsOnly;
 
   void queueScrobble(String songId, {required bool submission});
+
+  Song? songForPath(String path) => null;
 }

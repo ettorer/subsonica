@@ -8,6 +8,7 @@ import '../screens/lyrics_screen.dart';
 import '../screens/now_playing_screen.dart';
 import '../screens/playback_speed_sheet.dart';
 import '../screens/queue_screen.dart';
+import '../state/downloads.dart';
 import '../state/player_controller.dart';
 import '../state/session_controller.dart';
 import '../theme/app_colors.dart';
@@ -45,7 +46,11 @@ class MiniPlayer extends StatelessWidget {
     final song = player.lyricsTrack;
     if (song == null) return const SizedBox.shrink();
     final client = context.read<SessionController>().client;
-    final cover = client?.coverUri(song.artworkId, size: 200)?.toString();
+    final downloads = context.read<DownloadController>();
+    final file = downloads.coverFile(song.artworkId);
+    final cover = file == null && serverArtwork(song.artworkId)
+        ? client?.coverUri(song.artworkId, size: 200)?.toString()
+        : null;
     return Padding(
       padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
       child: Material(
@@ -67,6 +72,7 @@ class MiniPlayer extends StatelessWidget {
                       height: 48,
                       child: CoverImage(
                         url: cover,
+                        filePath: file,
                         icon: Icons.music_note_rounded,
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -133,7 +139,11 @@ class _WebTransportPlayer extends StatelessWidget {
     final song = player.lyricsTrack;
     if (song == null) return const SizedBox.shrink();
     final client = context.read<SessionController>().client;
-    final cover = client?.coverUri(song.artworkId, size: 200)?.toString();
+    final downloads = context.read<DownloadController>();
+    final file = downloads.coverFile(song.artworkId);
+    final cover = file == null && serverArtwork(song.artworkId)
+        ? client?.coverUri(song.artworkId, size: 200)?.toString()
+        : null;
     return Padding(
       padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
       child: Material(
@@ -160,6 +170,7 @@ class _WebTransportPlayer extends StatelessWidget {
                           height: 48,
                           child: CoverImage(
                             url: cover,
+                            filePath: file,
                             icon: Icons.music_note_rounded,
                             borderRadius: BorderRadius.circular(8),
                           ),

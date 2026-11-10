@@ -139,7 +139,7 @@ class SongTile extends StatelessWidget {
     final downloads = context.read<DownloadController>();
     final client = context.read<SessionController>().client;
     final coverFile = downloads.coverFile(song.artworkId);
-    final coverUrl = coverFile == null
+    final coverUrl = coverFile == null && serverArtwork(song.artworkId)
         ? client?.coverUri(song.artworkId, size: 160)?.toString()
         : null;
     return Padding(

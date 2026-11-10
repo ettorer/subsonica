@@ -9,6 +9,7 @@ import '../l10n/context_l10n.dart';
 import '../screens/lyrics_screen.dart';
 import '../screens/playback_speed_sheet.dart';
 import '../screens/queue_screen.dart';
+import '../state/downloads.dart';
 import '../state/player_controller.dart';
 import '../state/session_controller.dart';
 import '../theme/app_colors.dart';
@@ -52,7 +53,11 @@ class NowPlayingScreen extends StatelessWidget {
     final player = context.watch<PlayerController>();
     final song = player.lyricsTrack;
     final client = context.read<SessionController>().client;
-    final cover = client?.coverUri(song?.artworkId, size: 800)?.toString();
+    final downloads = context.read<DownloadController>();
+    final coverFile = downloads.coverFile(song?.artworkId);
+    final cover = coverFile == null && serverArtwork(song?.artworkId)
+        ? client?.coverUri(song?.artworkId, size: 800)?.toString()
+        : null;
     final albumTitle = player.queueTitle.isEmpty
         ? l10n.nowPlaying
         : queueLabel(l10n, player.queueTitle);
@@ -127,6 +132,7 @@ class NowPlayingScreen extends StatelessWidget {
                                 child: CoverImage(
                                   key: ValueKey(song.artworkId ?? song.id),
                                   url: cover,
+                                  filePath: coverFile,
                                   icon: Icons.music_note_rounded,
                                   borderRadius: BorderRadius.circular(20),
                                 ),
