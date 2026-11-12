@@ -50,6 +50,8 @@ dependencies:
   flutter_lyric: 4.1.0
   shelf: ^1.4.3
   shelf_web_socket: ^3.0.0
+  tesla_browser_detector:
+    path: packages/tesla_browser_detector
   web_socket_channel: ^3.0.3
 dev_dependencies:
   flutter_test:

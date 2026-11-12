@@ -281,38 +281,39 @@ class _CollectionScreenState extends State<CollectionScreen> {
         : client?.coverUri(_coverArtId, size: 800)?.toString();
     final width = MediaQuery.sizeOf(context).width;
     final side = (width - 96).clamp(180.0, 280.0);
-    final webAlbum = kIsWeb && widget.kind == CollectionKind.album;
-    return Scaffold(
-      appBar: AppBar(
-        actions: [
-          if (widget.kind == CollectionKind.album &&
-              _songs.isNotEmpty &&
-              !widget.id.startsWith('phone-album:'))
-            IconButton(
-              tooltip: context.l10n.options,
-              onPressed: () => openAlbumOptions(
-                context,
-                albumId: widget.id,
-                songs: _songs,
-                serverRating: _albumRating,
-              ),
-              icon: const Icon(Icons.more_vert),
+    final webCollection =
+        kIsWeb &&
+        (widget.kind == CollectionKind.album ||
+            widget.kind == CollectionKind.playlist);
+    final appBar = AppBar(
+      actions: [
+        if (widget.kind == CollectionKind.album &&
+            _songs.isNotEmpty &&
+            !widget.id.startsWith('phone-album:'))
+          IconButton(
+            tooltip: context.l10n.options,
+            onPressed: () => openAlbumOptions(
+              context,
+              albumId: widget.id,
+              songs: _songs,
+              serverRating: _albumRating,
             ),
-        ],
-      ),
-      body: webAlbum
-          ? _WebAlbumBody(
+            icon: const Icon(Icons.more_vert),
+          ),
+      ],
+    );
+    return Scaffold(
+      appBar: webCollection ? null : appBar,
+      body: webCollection
+          ? _WebCollectionBody(
+              appBar: appBar,
               cover: cover,
               localCover: localCover,
               icon: _icon,
               title: _title,
               subtitle: _subtitle,
               countLabel: formatTrackCount(context.l10n, _count),
-              controls: AlbumControls(
-                albumId: widget.id,
-                songs: _loading ? const [] : _songs,
-                queueTitle: _title,
-              ),
+              controls: _transport(),
               onRefresh: _load,
               tracks: _trackSlivers(),
             )
@@ -461,8 +462,9 @@ class _CollectionScreenState extends State<CollectionScreen> {
   }
 }
 
-class _WebAlbumBody extends StatelessWidget {
-  const _WebAlbumBody({
+class _WebCollectionBody extends StatelessWidget {
+  const _WebCollectionBody({
+    required this.appBar,
     required this.cover,
     required this.localCover,
     required this.icon,
@@ -474,6 +476,7 @@ class _WebAlbumBody extends StatelessWidget {
     required this.tracks,
   });
 
+  final PreferredSizeWidget appBar;
   final String? cover;
   final String? localCover;
   final IconData icon;
@@ -494,65 +497,82 @@ class _WebAlbumBody extends StatelessWidget {
             children: [
               Expanded(
                 flex: 1,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 8, 16, 8),
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      const reserved = 176.0;
-                      final room = constraints.maxHeight - reserved;
-                      final side = min(constraints.maxWidth, max(96.0, room));
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Center(
-                            child: SizedBox(
-                              width: side,
-                              height: side,
-                              child: CoverImage(
-                                url: cover,
-                                filePath: localCover,
-                                icon: icon,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            title,
-                            textAlign: TextAlign.center,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          if (subtitle != null) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              subtitle!,
-                              textAlign: TextAlign.center,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(color: AppColors.muted),
-                            ),
-                          ],
-                          const SizedBox(height: 4),
-                          Text(
-                            countLabel,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(color: AppColors.muted),
-                          ),
-                          FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: SizedBox(
-                              width: max(constraints.maxWidth, 320),
-                              child: controls,
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
+                child: Column(
+                  children: [
+                    SizedBox(
+                      height: appBar.preferredSize.height,
+                      child: appBar,
+                    ),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 8, 16, 8),
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            const reserved = 176.0;
+                            final room = constraints.maxHeight - reserved;
+                            final side = min(
+                              constraints.maxWidth,
+                              max(96.0, room),
+                            );
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Center(
+                                  child: SizedBox(
+                                    width: side,
+                                    height: side,
+                                    child: CoverImage(
+                                      url: cover,
+                                      filePath: localCover,
+                                      icon: icon,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  title,
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                if (subtitle != null) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    subtitle!,
+                                    textAlign: TextAlign.center,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: AppColors.muted,
+                                    ),
+                                  ),
+                                ],
+                                const SizedBox(height: 4),
+                                Text(
+                                  countLabel,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: AppColors.muted,
+                                  ),
+                                ),
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: SizedBox(
+                                    width: max(constraints.maxWidth, 320),
+                                    child: controls,
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const VerticalDivider(

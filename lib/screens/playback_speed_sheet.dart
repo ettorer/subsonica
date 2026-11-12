@@ -13,6 +13,7 @@ import '../state/rating_updates.dart';
 import '../state/session_controller.dart';
 import '../theme/app_colors.dart';
 import '../widgets/rating_bar.dart';
+import '../widgets/playlist_button.dart';
 
 void openPlaybackSpeed(BuildContext context) {
   showModalBottomSheet<void>(
@@ -188,6 +189,15 @@ class _PlaybackSpeedSheetState extends State<PlaybackSpeedSheet> {
               leading: const Icon(Icons.album_rounded),
               title: Text(l10n.showAlbum),
               onTap: () => _showAlbum(albumSong),
+            ),
+          ],
+          if (kIsWeb && song != null) ...[
+            const Divider(height: 1, color: AppColors.outline),
+            ListTile(
+              contentPadding: const EdgeInsets.only(left: 8, right: 8),
+              leading: const Icon(Icons.playlist_add_rounded),
+              title: Text(l10n.addToPlaylist),
+              onTap: () => showAddToPlaylistSheet(context, song),
             ),
           ],
           const Divider(height: 1, color: AppColors.outline),

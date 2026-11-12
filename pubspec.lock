@@ -682,6 +682,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.2.2"
+  tesla_browser_detector:
+    dependency: "direct main"
+    description:
+      path: "private/tesla_browser_detector"
+      relative: true
+    source: path
+    version: "1.0.0"
   test_api:
     dependency: transitive
     description:

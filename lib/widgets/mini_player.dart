@@ -223,16 +223,17 @@ class _WebTransportPlayer extends StatelessWidget {
                     icon: Icons.skip_next_rounded,
                     onPressed: player.next,
                   ),
-                  _BarButton(
-                    tooltip: player.shuffleEnabled
-                        ? l10n.shuffleOn
-                        : l10n.shuffle,
-                    icon: Icons.shuffle_rounded,
-                    color: player.shuffleEnabled
-                        ? AppColors.accent
-                        : AppColors.muted,
-                    onPressed: player.toggleShuffle,
-                  ),
+                  if (!kIsWeb)
+                    _BarButton(
+                      tooltip: player.shuffleEnabled
+                          ? l10n.shuffleOn
+                          : l10n.shuffle,
+                      icon: Icons.shuffle_rounded,
+                      color: player.shuffleEnabled
+                          ? AppColors.accent
+                          : AppColors.muted,
+                      onPressed: player.toggleShuffle,
+                    ),
                   _BarButton(
                     tooltip: switch (player.loopMode) {
                       LoopMode.off => l10n.loopOff,
@@ -252,7 +253,7 @@ class _WebTransportPlayer extends StatelessWidget {
                     icon: Icons.lyrics_rounded,
                     onPressed: () => openLyrics(context),
                   ),
-                  PlaylistButton(song: song),
+                  if (!kIsWeb) PlaylistButton(song: song),
                   FavoriteButton(key: ValueKey(song.id), song: song),
                   _BarButton(
                     tooltip: l10n.options,

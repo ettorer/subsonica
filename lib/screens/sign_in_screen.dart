@@ -79,6 +79,27 @@ class _SignInScreenState extends State<SignInScreen> {
     });
   }
 
+  void _showBrowserDiagnostics() {
+    final session = context.read<SessionController>();
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Browser debug info'),
+        content: SelectableText(
+          'User agent:\n${session.browserUserAgent}\n\n'
+          'Tesla browser (_teslaBrowser): ${session.isTeslaBrowser}\n\n'
+          '${session.browserDiagnostics}',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(context.l10n.close),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final savedUrl = _usableServer(
@@ -86,7 +107,16 @@ class _SignInScreenState extends State<SignInScreen> {
     );
     final l10n = context.l10n;
     return Scaffold(
-      appBar: AppBar(),
+      appBar: AppBar(
+        leadingWidth: 50,
+        leading: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onDoubleTap: kIsWeb ? _showBrowserDiagnostics : null,
+          child: Navigator.canPop(context)
+              ? const BackButton()
+              : const SizedBox.expand(),
+        ),
+      ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(

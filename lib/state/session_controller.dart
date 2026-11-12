@@ -37,6 +37,9 @@ class SessionController extends ChangeNotifier {
   String? get webServerUrl => _webServerUrl;
   String? get webUsername => _webUsername;
   String? get webPassword => _webPassword;
+  String get browserUserAgent => _store.browserUserAgent;
+  bool get isTeslaBrowser => _store.isTeslaBrowser;
+  String get browserDiagnostics => _store.browserDiagnostics;
 
   Future<void> bootstrap() async {
     if (kIsWeb) {

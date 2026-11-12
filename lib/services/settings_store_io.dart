@@ -22,6 +22,10 @@ class SettingsStore {
 
   final FlutterSecureStorage _storage;
 
+  String get browserUserAgent => '';
+  bool get isTeslaBrowser => false;
+  String get browserDiagnostics => '';
+
   Future<StoredConnections> loadConnections() async {
     try {
       final raw = await _storage.read(key: _profilesKey);

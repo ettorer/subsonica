@@ -1,0 +1,7 @@
+name: tesla_browser_detector
+description: Local detector API with a safe default implementation.
+publish_to: none
+version: 1.0.0
+
+environment:
+  sdk: ^3.13.7
