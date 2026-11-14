@@ -12,6 +12,8 @@
   "karaokeOpen": "Apri questo indirizzo nel browser.",
   "karaokeNoAddress": "Connetti il telefono al Wi-Fi, poi spegni e riaccendi Karaoke.",
   "karaokeFailed": "Il server karaoke non si avvia.",
+  "showKaraokeQr": "Mostra codice QR",
+  "karaokeQrTitle": "Connetti a Karaoke",
   "downloadsTitle": "Download",
   "scanPhoneMusic": "Cerca musica sul telefono",
   "scanPhoneMusicNow": "Cerca musica sul telefono ora",

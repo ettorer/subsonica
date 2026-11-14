@@ -49,6 +49,12 @@ class AppLocalizationsIt extends AppLocalizations {
   String get karaokeFailed => 'Il server karaoke non si avvia.';
 
   @override
+  String get showKaraokeQr => 'Mostra codice QR';
+
+  @override
+  String get karaokeQrTitle => 'Connetti a Karaoke';
+
+  @override
   String get downloadsTitle => 'Download';
 
   @override

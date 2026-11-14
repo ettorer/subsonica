@@ -48,6 +48,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get karaokeFailed => 'The karaoke server could not start.';
 
   @override
+  String get showKaraokeQr => 'Show QR code';
+
+  @override
+  String get karaokeQrTitle => 'Connect to Karaoke';
+
+  @override
   String get downloadsTitle => 'Downloads';
 
   @override

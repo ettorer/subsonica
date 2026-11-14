@@ -24,6 +24,9 @@ import 'util/phone_scan_gate.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   if (!kIsWeb) {
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+    ]);
     await JustAudioBackground.init(
       androidNotificationChannelId: 'com.subsonica.subsonica.audio',
       androidNotificationChannelName: 'Playback',

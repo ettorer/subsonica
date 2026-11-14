@@ -170,6 +170,18 @@ abstract class AppLocalizations {
   /// **'The karaoke server could not start.'**
   String get karaokeFailed;
 
+  /// No description provided for @showKaraokeQr.
+  ///
+  /// In en, this message translates to:
+  /// **'Show QR code'**
+  String get showKaraokeQr;
+
+  /// No description provided for @karaokeQrTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect to Karaoke'**
+  String get karaokeQrTitle;
+
   /// No description provided for @downloadsTitle.
   ///
   /// In en, this message translates to:

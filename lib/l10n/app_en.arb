@@ -12,6 +12,8 @@
   "karaokeOpen": "Open this address in the browser.",
   "karaokeNoAddress": "Connect this phone to Wi-Fi, then turn Karaoke off and on.",
   "karaokeFailed": "The karaoke server could not start.",
+  "showKaraokeQr": "Show QR code",
+  "karaokeQrTitle": "Connect to Karaoke",
   "downloadsTitle": "Downloads",
   "scanPhoneMusic": "Scan phone music",
   "scanPhoneMusicNow": "Scan phone music now",

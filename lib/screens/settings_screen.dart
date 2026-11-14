@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../l10n/context_l10n.dart';
 import '../models/server_config.dart';
@@ -200,6 +201,44 @@ class _KaraokeTile extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: SelectableText(url, style: addressStyle),
+            ),
+          if (karaoke.enabled && (secureUrl ?? url) != null)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () {
+                  final qrUrl = secureUrl ?? url!;
+                  showDialog<void>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: Text(l10n.karaokeQrTitle),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          QrImageView(
+                            data: qrUrl,
+                            size: 220,
+                            backgroundColor: Colors.white,
+                          ),
+                          const SizedBox(height: 12),
+                          SelectableText(
+                            qrUrl,
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: Text(l10n.close),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.qr_code_rounded),
+                label: Text(l10n.showKaraokeQr),
+              ),
             ),
         ],
       ),
