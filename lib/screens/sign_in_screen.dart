@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../l10n/context_l10n.dart';
@@ -83,20 +84,27 @@ class _SignInScreenState extends State<SignInScreen> {
     final session = context.read<SessionController>();
     showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Browser debug info'),
-        content: SelectableText(
-          'User agent:\n${session.browserUserAgent}\n\n'
-          'Tesla browser (_teslaBrowser): ${session.isTeslaBrowser}\n\n'
-          '${session.browserDiagnostics}',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(context.l10n.close),
+      builder: (context) {
+        final size = MediaQuery.sizeOf(context);
+        return AlertDialog(
+          title: const Text('Browser debug info'),
+          content: SizedBox(
+            width: size.width * 0.72,
+            height: size.height * 0.58,
+            child: _BrowserDebugContent(
+              userAgent: session.browserUserAgent,
+              isTeslaBrowser: session.isTeslaBrowser,
+              diagnostics: session.browserDiagnostics,
+            ),
           ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(context.l10n.close),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -224,6 +232,122 @@ class _SignInScreenState extends State<SignInScreen> {
   void _clearError() {
     if (_error == null) return;
     setState(() => _error = null);
+  }
+}
+
+class _BrowserDebugContent extends StatefulWidget {
+  const _BrowserDebugContent({
+    required this.userAgent,
+    required this.isTeslaBrowser,
+    required this.diagnostics,
+  });
+
+  final String userAgent;
+  final bool isTeslaBrowser;
+  final String diagnostics;
+
+  @override
+  State<_BrowserDebugContent> createState() => _BrowserDebugContentState();
+}
+
+class _BrowserDebugContentState extends State<_BrowserDebugContent> {
+  static const _maxEvents = 50;
+  final _events = <String>[];
+
+  @override
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_captureKeyEvent);
+  }
+
+  @override
+  void dispose() {
+    HardwareKeyboard.instance.removeHandler(_captureKeyEvent);
+    super.dispose();
+  }
+
+  bool _captureKeyEvent(KeyEvent event) {
+    final modifiers = [
+      if (HardwareKeyboard.instance.isControlPressed) 'Ctrl',
+      if (HardwareKeyboard.instance.isAltPressed) 'Alt',
+      if (HardwareKeyboard.instance.isShiftPressed) 'Shift',
+      if (HardwareKeyboard.instance.isMetaPressed) 'Meta',
+    ];
+    final lines = [
+      '${event.runtimeType} at ${event.timeStamp}',
+      'Logical: ${event.logicalKey.debugName ?? "unknown"} '
+          '(0x${event.logicalKey.keyId.toRadixString(16)})',
+      'Physical: ${event.physicalKey.debugName ?? "unknown"} '
+          '(HID 0x${event.physicalKey.usbHidUsage.toRadixString(16)})',
+      'Label: ${event.logicalKey.keyLabel.isEmpty ? "(none)" : event.logicalKey.keyLabel}',
+      'Modifiers: ${modifiers.isEmpty ? "(none)" : modifiers.join(" + ")}',
+      'Synthesized: ${event.synthesized}',
+    ].join('\n');
+    if (!mounted) return false;
+    setState(() {
+      _events.insert(0, lines);
+      if (_events.length > _maxEvents) _events.removeLast();
+    });
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          flex: 2,
+          child: SingleChildScrollView(
+            child: SelectableText(
+              'User agent:\n${widget.userAgent}\n\n'
+              'Tesla browser (_teslaBrowser): ${widget.isTeslaBrowser}\n\n'
+              '${widget.diagnostics}',
+            ),
+          ),
+        ),
+        const Divider(),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Keyboard events (${_events.length})',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            TextButton(
+              onPressed: _events.isEmpty ? null : () => setState(_events.clear),
+              child: const Text('Clear'),
+            ),
+          ],
+        ),
+        Expanded(
+          flex: 3,
+          child: _events.isEmpty
+              ? const Center(
+                  child: Text(
+                    'Press the car buttons to inspect keyboard events.',
+                    textAlign: TextAlign.center,
+                  ),
+                )
+              : ListView.separated(
+                  itemCount: _events.length,
+                  separatorBuilder: (context, index) =>
+                      const Divider(height: 1),
+                  itemBuilder: (context, index) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: SelectableText(
+                      _events[index],
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ),
+        ),
+      ],
+    );
   }
 }
 

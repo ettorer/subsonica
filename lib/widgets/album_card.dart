@@ -59,7 +59,7 @@ class AlbumCard extends StatelessWidget {
 
 int albumCrossCount(double width) {
   if (kIsWeb) {
-    final count = width ~/ 220;
+    final count = width ~/ 190;
     if (count < 2) return 2;
     return count;
   }
