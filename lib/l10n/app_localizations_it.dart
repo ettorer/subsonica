@@ -142,6 +142,9 @@ class AppLocalizationsIt extends AppLocalizations {
   String get lyrics => 'Testi';
 
   @override
+  String get seekToFirstLyric => 'Vai un secondo prima del primo verso';
+
+  @override
   String get musicOnly => 'Solo musica';
 
   @override

@@ -16,10 +16,12 @@ import '../widgets/rating_bar.dart';
 import '../widgets/playlist_button.dart';
 
 void openPlaybackSpeed(BuildContext context) {
+  final screenHeight = MediaQuery.sizeOf(context).height;
   showModalBottomSheet<void>(
     context: context,
     backgroundColor: AppColors.surface,
     showDragHandle: true,
+    scrollControlDisabledMaxHeightRatio: 0.6 + 30 / screenHeight,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),

@@ -24,6 +24,13 @@ List<LyricLine> parseLrc(String lrc) {
   return lines;
 }
 
+Duration? firstLyricSeekPosition(String lrc) {
+  final lines = parseLrc(lrc);
+  if (lines.isEmpty) return null;
+  final timeMs = lines.first.timeMs - 1000;
+  return Duration(milliseconds: timeMs < 0 ? 0 : timeMs);
+}
+
 int _timeMs(int minutes, int seconds, String? fraction) {
   return ((minutes * 60) + seconds) * 1000 + _fractionMs(fraction);
 }

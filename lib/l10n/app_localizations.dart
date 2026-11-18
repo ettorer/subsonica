@@ -326,6 +326,12 @@ abstract class AppLocalizations {
   /// **'Lyrics'**
   String get lyrics;
 
+  /// No description provided for @seekToFirstLyric.
+  ///
+  /// In en, this message translates to:
+  /// **'Seek to one second before the first lyric'**
+  String get seekToFirstLyric;
+
   /// No description provided for @musicOnly.
   ///
   /// In en, this message translates to:

@@ -39,6 +39,20 @@ void openAlbum(BuildContext context, Album album) {
   );
 }
 
+void openSongAlbum(BuildContext context, Song song) {
+  final albumId = song.albumId;
+  if (albumId == null || albumId.isEmpty) return;
+  openAlbum(
+    context,
+    Album(
+      id: albumId,
+      name: song.album.isEmpty ? 'Album' : song.album,
+      artist: song.artist,
+      coverArt: song.coverArt,
+    ),
+  );
+}
+
 void openPlaylist(BuildContext context, Playlist playlist) {
   Navigator.of(context).push(
     MaterialPageRoute<void>(
@@ -316,6 +330,9 @@ class _CollectionScreenState extends State<CollectionScreen> {
               controls: _transport(),
               onRefresh: _load,
               tracks: _trackSlivers(),
+              currentAlbumId: widget.kind == CollectionKind.album
+                  ? widget.id
+                  : null,
             )
           : Column(
               children: [
@@ -474,6 +491,7 @@ class _WebCollectionBody extends StatelessWidget {
     required this.controls,
     required this.onRefresh,
     required this.tracks,
+    required this.currentAlbumId,
   });
 
   final PreferredSizeWidget appBar;
@@ -486,6 +504,7 @@ class _WebCollectionBody extends StatelessWidget {
   final Widget controls;
   final Future<void> Function() onRefresh;
   final List<Widget> tracks;
+  final String? currentAlbumId;
 
   @override
   Widget build(BuildContext context) {
@@ -593,7 +612,11 @@ class _WebCollectionBody extends StatelessWidget {
             ],
           ),
         ),
-        const MiniPlayerSlot(transport: true),
+        MiniPlayerSlot(
+          transport: true,
+          currentAlbumId: currentAlbumId,
+          onTrackTap: (song) => openSongAlbum(context, song),
+        ),
       ],
     );
   }

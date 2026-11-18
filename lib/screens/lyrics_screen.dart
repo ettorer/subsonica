@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../l10n/context_l10n.dart';
 import '../models/library.dart';
+import '../remote/lrc.dart';
 import '../services/lyrics_client.dart';
 import '../state/downloads.dart';
 import '../state/lyric_progress.dart';
@@ -39,6 +40,7 @@ class _LyricsScreenState extends State<LyricsScreen> {
   var _loading = true;
   String? _error;
   LyricMatch? _match;
+  Duration? _firstLyricSeekPosition;
 
   static final _preset = LyricPresets.appleMusic.copyWith(
     highlight: const LyricHighlight.solid(AppColors.accent, tailFadeWidth: 12),
@@ -105,6 +107,7 @@ class _LyricsScreenState extends State<LyricsScreen> {
       setState(() {
         _loading = false;
         _match = null;
+        _firstLyricSeekPosition = null;
         _error = null;
       });
       return;
@@ -112,6 +115,7 @@ class _LyricsScreenState extends State<LyricsScreen> {
     setState(() {
       _loading = true;
       _match = null;
+      _firstLyricSeekPosition = null;
       _error = null;
     });
     try {
@@ -130,12 +134,16 @@ class _LyricsScreenState extends State<LyricsScreen> {
       if (!mounted || generation != _generation) return;
       if (saved == null) await downloads.saveLyrics(song.id, match);
       if (!mounted || generation != _generation) return;
+      final seekPosition = match.synced
+          ? firstLyricSeekPosition(match.lrc)
+          : null;
       if (match.synced && match.lrc.trim().isNotEmpty) {
         _controller.load(match.lrc);
       }
       setState(() {
         _loading = false;
         _match = match;
+        _firstLyricSeekPosition = seekPosition;
       });
     } on LyricsException catch (error) {
       if (!mounted || generation != _generation) return;
@@ -163,6 +171,8 @@ class _LyricsScreenState extends State<LyricsScreen> {
     final coverUrl = coverFile == null
         ? client?.coverUri(song?.artworkId, size: 800)?.toString()
         : null;
+    final size = MediaQuery.sizeOf(context);
+    final landscape = size.width > size.height;
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -196,30 +206,11 @@ class _LyricsScreenState extends State<LyricsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 4, 24, 8),
-                  child: Column(
-                    children: [
-                      Text(
-                        song?.title ?? context.l10n.nothingPlaying,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      if (song != null) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          displayName(context.l10n, song.artist),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: AppColors.muted),
-                        ),
-                      ],
-                    ],
-                  ),
+                _trackHeader(
+                  song,
+                  landscape: landscape,
+                  coverUrl: coverUrl,
+                  coverFile: coverFile,
                 ),
                 Expanded(child: _body(player)),
                 if (_caption != null)
@@ -232,17 +223,7 @@ class _LyricsScreenState extends State<LyricsScreen> {
                           ?.copyWith(color: AppColors.muted),
                     ),
                   ),
-                _plain
-                    ? Padding(
-                        padding: const EdgeInsets.fromLTRB(4, 0, 8, 4),
-                        child: Row(
-                          children: [
-                            _playButton(player, song),
-                            const Expanded(child: PlaybackSlider()),
-                          ],
-                        ),
-                      )
-                    : _playButton(player, song),
+                _playbackControls(player, song),
               ],
             ),
           ),
@@ -264,6 +245,132 @@ class _LyricsScreenState extends State<LyricsScreen> {
         !match.instrumental &&
         !match.synced &&
         match.plain.trim().isNotEmpty;
+  }
+
+  bool get _synced {
+    final match = _match;
+    return match != null &&
+        match.found &&
+        match.synced &&
+        !match.instrumental;
+  }
+
+  Widget _trackHeader(
+    Song? song, {
+    required bool landscape,
+    required String? coverUrl,
+    required String? coverFile,
+  }) {
+    final title = song?.title ?? context.l10n.nothingPlaying;
+    final artist = song == null ? null : displayName(context.l10n, song.artist);
+    if (!landscape) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(24, 4, 24, 8),
+        child: Column(
+          children: [
+            Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            if (artist != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                artist,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: AppColors.muted),
+              ),
+            ],
+          ],
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 4, 24, 8),
+      child: Row(
+        children: [
+          if (song != null) ...[
+            SizedBox(
+              width: 88,
+              height: 88,
+              child: CoverImage(
+                url: coverUrl,
+                filePath: coverFile,
+                icon: Icons.music_note_rounded,
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            const SizedBox(width: 16),
+          ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                if (artist != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    artist,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: AppColors.muted),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _playbackControls(PlayerController player, Song? song) {
+    if (_plain) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(4, 0, 8, 4),
+        child: Row(
+          children: [
+            _playButton(player, song),
+            const Expanded(child: PlaybackSlider()),
+          ],
+        ),
+      );
+    }
+    if (_synced) {
+      final seekPosition = _firstLyricSeekPosition;
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(4, 0, 8, 4),
+        child: Row(
+          children: [
+            IconButton(
+              tooltip: context.l10n.seekToFirstLyric,
+              onPressed: seekPosition == null
+                  ? null
+                  : () => player.seek(seekPosition),
+              color: AppColors.accent,
+              icon: const Icon(Icons.first_page_rounded),
+            ),
+            Expanded(child: Center(child: _playButton(player, song))),
+            const SizedBox(width: 48),
+          ],
+        ),
+      );
+    }
+    return _playButton(player, song);
   }
 
   Widget _playButton(PlayerController player, Song? song) {

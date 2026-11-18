@@ -6,12 +6,13 @@ import '../services/subsonic_api.dart';
 import '../state/session_controller.dart';
 import '../l10n/context_l10n.dart';
 import '../theme/app_colors.dart';
-import '../widgets/collection_actions.dart';
 import '../widgets/message_page.dart';
 import '../widgets/song_tile.dart';
 
 class TracksTab extends StatefulWidget {
-  const TracksTab({super.key});
+  const TracksTab({super.key, this.onSongsLoaded});
+
+  final ValueChanged<List<Song>>? onSongsLoaded;
 
   @override
   State<TracksTab> createState() => _TracksTabState();
@@ -44,6 +45,7 @@ class _TracksTabState extends State<TracksTab> {
         _songs = songs;
         _loading = false;
       });
+      widget.onSongsLoaded?.call(songs);
     } catch (error) {
       if (!mounted || request != _request) return;
       setState(() {
@@ -72,20 +74,12 @@ class _TracksTabState extends State<TracksTab> {
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           SliverToBoxAdapter(
-            child: Column(
-              children: [
-                CollectionActions(
-                  songs: _songs,
-                  queueTitle: context.l10n.tracks,
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                  child: Text(
-                    context.l10n.tracksSample,
-                    style: const TextStyle(color: AppColors.muted, fontSize: 13),
-                  ),
-                ),
-              ],
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text(
+                context.l10n.tracksSample,
+                style: const TextStyle(color: AppColors.muted, fontSize: 13),
+              ),
             ),
           ),
           if (_songs.isEmpty)

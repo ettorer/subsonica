@@ -24,7 +24,6 @@ class ConnectionScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final session = context.watch<SessionController>();
-    final downloads = context.watch<DownloadController>();
     final profiles = session.profiles;
     return PopScope(
       canPop: !canLeave,
@@ -77,10 +76,8 @@ class ConnectionScreen extends StatelessWidget {
                         initialId: initial?.id ?? session.activeId,
                         error: initialError ?? session.connectionError,
                       ),
-                    if (downloads.hasCompleted) ...[
-                      const SizedBox(height: 12),
-                      const _OfflineButton(),
-                    ],
+                    const SizedBox(height: 12),
+                    const _OfflineButton(),
                   ],
                 ),
               ),
@@ -104,7 +101,7 @@ class _OfflineButton extends StatelessWidget {
         context.read<SessionController>().closeConnection();
       },
       icon: const Icon(Icons.download_done_rounded),
-      label: Text(context.l10n.listenOffline),
+      label: Text(context.l10n.offlineMode),
     );
   }
 }

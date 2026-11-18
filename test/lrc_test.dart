@@ -12,4 +12,13 @@ void main() {
     expect(lines.map((line) => line.timeMs), [1000, 3000, 12340, 62500]);
     expect(lines.map((line) => line.text), ['Twice', 'Twice', 'Hello', 'Hi']);
   });
+
+  test('first lyric seek position is one second before the first line', () {
+    expect(
+      firstLyricSeekPosition('[00:04.25] First line\n[00:08.00] Second line'),
+      const Duration(milliseconds: 3250),
+    );
+    expect(firstLyricSeekPosition('[00:00.50] First line'), Duration.zero);
+    expect(firstLyricSeekPosition('[ar:Someone]'), isNull);
+  });
 }

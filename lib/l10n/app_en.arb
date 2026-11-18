@@ -41,6 +41,7 @@
   "tryAgain": "Try again",
   "show": "Show",
   "lyrics": "Lyrics",
+  "seekToFirstLyric": "Seek to one second before the first lyric",
   "musicOnly": "Music only",
   "withVocals": "With vocals",
   "playQueue": "Play queue",

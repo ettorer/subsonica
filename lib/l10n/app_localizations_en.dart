@@ -139,6 +139,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get lyrics => 'Lyrics';
 
   @override
+  String get seekToFirstLyric => 'Seek to one second before the first lyric';
+
+  @override
   String get musicOnly => 'Music only';
 
   @override

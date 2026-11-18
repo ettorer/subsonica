@@ -5,14 +5,18 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../l10n/context_l10n.dart';
+import '../models/library.dart';
 import '../theme/app_colors.dart';
 import '../state/downloads.dart';
+import '../state/player_controller.dart';
 import '../state/session_controller.dart';
+import '../widgets/choice_menu.dart';
 import '../widgets/library_tab_bar.dart';
 import '../widgets/mini_player.dart';
 import 'albums_tab.dart';
 import 'home_tab.dart';
 import 'artists_tab.dart';
+import 'collection_screen.dart';
 import 'downloads_screen.dart';
 import 'favorites_tab.dart';
 import 'genres_tab.dart';
@@ -37,6 +41,7 @@ class _HomeShellState extends State<HomeShell> {
   var _offlineTab = 0;
   var _query = '';
   var _submittedQuery = '';
+  List<Song> _trackSongs = const [];
 
   @override
   void dispose() {
@@ -149,31 +154,10 @@ class _HomeShellState extends State<HomeShell> {
                             ),
                           ),
                   ),
-                  PopupMenuButton<String>(
+                  IconButton(
                     tooltip: l10n.options,
+                    onPressed: () => _openMenu(offline, searching),
                     icon: const Icon(Icons.more_vert, color: AppColors.text),
-                    onSelected: (value) => _openMenu(context, value),
-                    itemBuilder: (context) => [
-                      if (!kIsWeb)
-                        PopupMenuItem(
-                          value: 'downloads',
-                          child: Text(l10n.downloadsTitle),
-                        ),
-                      if (offline)
-                        PopupMenuItem(
-                          value: 'connection',
-                          child: Text(l10n.serverConnection),
-                        ),
-                      PopupMenuItem(
-                        value: 'settings',
-                        child: Text(l10n.settingsTitle),
-                      ),
-                      if (kIsWeb)
-                        PopupMenuItem(
-                          value: 'logout',
-                          child: Text(l10n.logOut),
-                        ),
-                    ],
                   ),
                 ],
               ),
@@ -189,14 +173,14 @@ class _HomeShellState extends State<HomeShell> {
                       ? OfflineLibrary(tab: _offlineTab)
                       : IndexedStack(
                           index: _tab,
-                          children: const [
-                            HomeTab(),
-                            AlbumsTab(),
-                            TracksTab(),
-                            ArtistsTab(),
-                            GenresTab(),
-                            PlaylistsTab(),
-                            FavoritesTab(),
+                          children: [
+                            const HomeTab(),
+                            const AlbumsTab(),
+                            TracksTab(onSongsLoaded: _onTracksLoaded),
+                            const ArtistsTab(),
+                            const GenresTab(),
+                            const PlaylistsTab(),
+                            const FavoritesTab(),
                           ],
                         ),
                 ),
@@ -209,7 +193,11 @@ class _HomeShellState extends State<HomeShell> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const MiniPlayerSlot(safeBottom: false),
+                MiniPlayerSlot(
+                  safeBottom: false,
+                  transport: kIsWeb,
+                  onTrackTap: (song) => openSongAlbum(context, song),
+                ),
                 LibraryTabBar(
                   index: offline ? _offlineTab : _tab,
                   items: tabs,
@@ -232,8 +220,68 @@ class _HomeShellState extends State<HomeShell> {
     );
   }
 
-  void _openMenu(BuildContext context, String value) {
+  void _onTracksLoaded(List<Song> songs) {
+    if (!mounted) return;
+    setState(() => _trackSongs = songs);
+  }
+
+  Future<void> _openMenu(bool offline, bool searching) async {
+    final l10n = context.l10n;
+    final value = await showChoiceMenu(context, [
+      if (_tab == 2 && !offline && !searching) ...[
+        MenuChoice(
+          value: 'track-play-all',
+          icon: Icons.play_arrow_rounded,
+          label: l10n.playAll,
+          enabled: _trackSongs.isNotEmpty,
+        ),
+        MenuChoice(
+          value: 'track-random',
+          icon: Icons.shuffle_rounded,
+          label: l10n.random,
+          enabled: _trackSongs.isNotEmpty,
+        ),
+      ],
+      if (!kIsWeb)
+        MenuChoice(
+          value: 'downloads',
+          icon: Icons.download_rounded,
+          label: l10n.downloadsTitle,
+        ),
+      if (offline)
+        MenuChoice(
+          value: 'connection',
+          icon: Icons.link_rounded,
+          label: l10n.serverConnection,
+        ),
+      MenuChoice(
+        value: 'settings',
+        icon: Icons.settings_rounded,
+        label: l10n.settingsTitle,
+      ),
+      if (kIsWeb)
+        MenuChoice(
+          value: 'logout',
+          icon: Icons.logout_rounded,
+          label: l10n.logOut,
+        ),
+    ]);
+    if (!mounted || value == null) return;
     switch (value) {
+      case 'track-play-all':
+        await context.read<PlayerController>().playSongs(
+          _trackSongs,
+          startIndex: 0,
+          shuffle: false,
+          queueTitle: l10n.tracks,
+        );
+      case 'track-random':
+        await context.read<PlayerController>().playSongs(
+          _trackSongs,
+          startIndex: 0,
+          shuffle: true,
+          queueTitle: l10n.tracks,
+        );
       case 'downloads':
         Navigator.of(context).push(
           MaterialPageRoute<void>(builder: (_) => const DownloadsScreen()),
