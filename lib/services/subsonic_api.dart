@@ -7,6 +7,7 @@ import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/library.dart';
+import '../models/playback_resume.dart';
 import '../models/server_config.dart';
 import 'io_error.dart';
 
@@ -114,6 +115,19 @@ int readUserRating(dynamic value) {
   if (rating < 0) return 0;
   if (rating > 5) return 5;
   return rating;
+}
+
+DateTime _playQueueTime(Object? value) {
+  if (value is num) {
+    final time = value.round();
+    if (time > 100000000000) return DateTime.fromMillisecondsSinceEpoch(time);
+    if (time > 1000000000) {
+      return DateTime.fromMillisecondsSinceEpoch(time * 1000);
+    }
+    return DateTime.fromMillisecondsSinceEpoch(0);
+  }
+  return DateTime.tryParse(asString(value)) ??
+      DateTime.fromMillisecondsSinceEpoch(0);
 }
 
 int asInt(dynamic value) {
@@ -403,6 +417,47 @@ class SubsonicClient {
         'id': songId,
       }, timeout: const Duration(seconds: 12));
       return data['lyricsList'];
+    } on SubsonicException {
+      return null;
+    }
+  }
+
+  Future<void> savePlayQueue({
+    required List<String> ids,
+    required String currentId,
+    required int positionMs,
+  }) async {
+    final songIds = ids.where((id) => id.isNotEmpty).toList();
+    if (songIds.isEmpty || currentId.isEmpty) return;
+    await _requestRepeated('savePlayQueue.view', {
+      'id': songIds,
+      'current': [currentId],
+      'position': ['${positionMs < 0 ? 0 : positionMs}'],
+    });
+  }
+
+  Future<PlaybackResume?> loadPlayQueue() async {
+    try {
+      final data = await _request('getPlayQueue.view', const {});
+      final node = data['playQueue'];
+      if (node is! Map) return null;
+      final map = Map<String, dynamic>.from(node);
+      final resume = PlaybackResume.fromParts(
+        songs: parseSongList(map),
+        currentId: asString(map['current']),
+        positionMs: asInt(map['position']),
+        savedAt: _playQueueTime(map['changed']),
+      );
+      if (resume == null) return null;
+      final album = resume.current.album;
+      if (album.isEmpty) return resume;
+      return PlaybackResume(
+        songs: resume.songs,
+        currentIndex: resume.currentIndex,
+        position: resume.position,
+        savedAt: resume.savedAt,
+        queueTitle: album,
+      );
     } on SubsonicException {
       return null;
     }

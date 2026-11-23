@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../l10n/context_l10n.dart';
 import '../models/library.dart';
+import '../navigation/app_route_observer.dart';
 import '../theme/app_colors.dart';
 import '../state/downloads.dart';
 import '../state/player_controller.dart';
@@ -33,18 +34,32 @@ class HomeShell extends StatefulWidget {
   State<HomeShell> createState() => _HomeShellState();
 }
 
-class _HomeShellState extends State<HomeShell> {
+class _HomeShellState extends State<HomeShell> with RouteAware {
   final _search = TextEditingController();
   final _searchFocus = FocusNode();
   Timer? _debounce;
   var _tab = 0;
   var _offlineTab = 0;
+  var _shownTick = 0;
   var _query = '';
   var _submittedQuery = '';
   List<Song> _trackSongs = const [];
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route != null) appRouteObserver.subscribe(this, route);
+  }
+
+  @override
+  void didPopNext() {
+    setState(() => _shownTick++);
+  }
+
+  @override
   void dispose() {
+    appRouteObserver.unsubscribe(this);
     _debounce?.cancel();
     _search.dispose();
     _searchFocus.dispose();
@@ -174,7 +189,10 @@ class _HomeShellState extends State<HomeShell> {
                       : IndexedStack(
                           index: _tab,
                           children: [
-                            const HomeTab(),
+                            HomeTab(
+                              active: _tab == 0 && !searching,
+                              shownTick: _shownTick,
+                            ),
                             const AlbumsTab(),
                             TracksTab(onSongsLoaded: _onTracksLoaded),
                             const ArtistsTab(),
@@ -202,8 +220,12 @@ class _HomeShellState extends State<HomeShell> {
                   index: offline ? _offlineTab : _tab,
                   items: tabs,
                   onSelected: (index) {
+                    _debounce?.cancel();
                     _searchFocus.unfocus();
+                    _search.clear();
                     setState(() {
+                      _query = '';
+                      _submittedQuery = '';
                       if (offline) {
                         _offlineTab = index;
                       } else {

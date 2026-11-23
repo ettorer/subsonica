@@ -364,7 +364,28 @@ class _LyricsScreenState extends State<LyricsScreen> {
               color: AppColors.accent,
               icon: const Icon(Icons.first_page_rounded),
             ),
-            Expanded(child: Center(child: _playButton(player, song))),
+            Expanded(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    tooltip: context.l10n.previousTrack,
+                    onPressed: song == null ? null : player.previous,
+                    color: AppColors.accent,
+                    iconSize: 32,
+                    icon: const Icon(Icons.skip_previous_rounded),
+                  ),
+                  _playButton(player, song),
+                  IconButton(
+                    tooltip: context.l10n.nextTrack,
+                    onPressed: song == null ? null : player.next,
+                    color: AppColors.accent,
+                    iconSize: 32,
+                    icon: const Icon(Icons.skip_next_rounded),
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(width: 48),
           ],
         ),

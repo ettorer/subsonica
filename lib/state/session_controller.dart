@@ -219,6 +219,7 @@ class SessionController extends ChangeNotifier {
     _webUsername = null;
     _webPassword = null;
     await _store.clearWebCredentials();
+    await _store.clearWebPlayback();
     notifyListeners();
   }
 

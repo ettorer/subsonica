@@ -229,5 +229,11 @@
   "trackCount": "{count, plural, =1{1 track} other{{count} tracks}}",
   "@trackCount": {"placeholders": {"count": {"type": "int"}}},
   "albumCount": "{count, plural, =1{1 album} other{{count} albums}}",
-  "@albumCount": {"placeholders": {"count": {"type": "int"}}}
+  "@albumCount": {"placeholders": {"count": {"type": "int"}}},
+  "homeRecent": "Recent",
+  "homeFavoriteTracks": "Favorite tracks",
+  "noFavoriteTracks": "No favorite tracks",
+  "homeSuggested": "Suggested",
+  "homeSuggestedIdle": "Play a track to see similar songs.",
+  "homePlaylists": "Playlists"
 }

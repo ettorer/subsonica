@@ -1363,6 +1363,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count, plural, =1{1 album} other{{count} albums}}'**
   String albumCount(int count);
+
+  /// No description provided for @homeRecent.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent'**
+  String get homeRecent;
+
+  /// No description provided for @homeFavoriteTracks.
+  ///
+  /// In en, this message translates to:
+  /// **'Favorite tracks'**
+  String get homeFavoriteTracks;
+
+  /// No description provided for @noFavoriteTracks.
+  ///
+  /// In en, this message translates to:
+  /// **'No favorite tracks'**
+  String get noFavoriteTracks;
+
+  /// No description provided for @homeSuggested.
+  ///
+  /// In en, this message translates to:
+  /// **'Suggested'**
+  String get homeSuggested;
+
+  /// No description provided for @homeSuggestedIdle.
+  ///
+  /// In en, this message translates to:
+  /// **'Play a track to see similar songs.'**
+  String get homeSuggestedIdle;
+
+  /// No description provided for @homePlaylists.
+  ///
+  /// In en, this message translates to:
+  /// **'Playlists'**
+  String get homePlaylists;
 }
 
 class _AppLocalizationsDelegate

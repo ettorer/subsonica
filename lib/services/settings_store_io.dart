@@ -150,6 +150,12 @@ class SettingsStore {
 
   Future<void> clearWebCredentials() async {}
 
+  Future<String?> loadWebPlayback() async => null;
+
+  Future<void> saveWebPlayback(String value) async {}
+
+  Future<void> clearWebPlayback() async {}
+
   Future<void> clear() async {
     await _storage.delete(key: _urlKey);
     await _storage.delete(key: _usernameKey);

@@ -61,6 +61,7 @@ class SettingsStore {
   static const _localeKey = 'subsonica.locale';
   static const _usernameKey = 'subsonica.username';
   static const _passwordKey = 'subsonica.password';
+  static const _playbackKey = 'subsonica.playback';
 
   String get browserUserAgent => _browserUserAgent.toDart;
   bool get isTeslaBrowser => tesla_detector.isTeslaBrowser;
@@ -142,11 +143,22 @@ class SettingsStore {
     _remove(_passwordKey);
   }
 
+  Future<String?> loadWebPlayback() async => _read(_playbackKey);
+
+  Future<void> saveWebPlayback(String value) async {
+    _write(_playbackKey, value);
+  }
+
+  Future<void> clearWebPlayback() async {
+    _remove(_playbackKey);
+  }
+
   Future<void> clear() async {
     _remove(_urlKey);
     _remove(_localeKey);
     _remove(_usernameKey);
     _remove(_passwordKey);
+    _remove(_playbackKey);
   }
 }
 

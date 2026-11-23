@@ -724,4 +724,22 @@ class AppLocalizationsIt extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get homeRecent => 'Recenti';
+
+  @override
+  String get homeFavoriteTracks => 'Brani preferiti';
+
+  @override
+  String get noFavoriteTracks => 'Nessun brano preferito';
+
+  @override
+  String get homeSuggested => 'Suggeriti';
+
+  @override
+  String get homeSuggestedIdle => 'Riproduci un brano per vedere brani simili.';
+
+  @override
+  String get homePlaylists => 'Playlist';
 }

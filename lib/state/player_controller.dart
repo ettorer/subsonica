@@ -7,8 +7,11 @@ import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 
 import '../models/library.dart';
+import '../models/playback_resume.dart';
+import '../services/settings_store.dart';
 import '../services/subsonic_api.dart';
 import '../util/music_only.dart';
+import '../util/page_hide.dart';
 import 'local_tracks.dart';
 
 class PlayerController extends ChangeNotifier {
@@ -31,6 +34,8 @@ class PlayerController extends ChangeNotifier {
   String _queueTitle = '';
   Song? _current;
   int? _currentIndex;
+  Song? _trackChoiceSong;
+  var _trackChoice = 0;
   var _playGeneration = 0;
   var _playing = false;
   var _shuffleEnabled = false;
@@ -55,6 +60,12 @@ class PlayerController extends ChangeNotifier {
   var _holdingIndex = false;
   var _siblingTicket = 0;
   var _webPlayerUsed = false;
+  SettingsStore? _settings;
+  var _resumeReady = false;
+  var _restoring = false;
+  var _watchingPageHide = false;
+  var _lastLocalSave = DateTime.fromMillisecondsSinceEpoch(0);
+  var _lastServerSave = DateTime.fromMillisecondsSinceEpoch(0);
 
   late StreamSubscription<PlayerState> _stateSub;
   late StreamSubscription<int?> _indexSub;
@@ -86,6 +97,7 @@ class PlayerController extends ChangeNotifier {
       (_) {},
       onError: (Object error, StackTrace _) {
         if (error is PlayerInterruptedException) return;
+        if (_autoplayBlocked(error)) return;
         _setError(
           _playbackMessage(error),
           offerPhoneScan: _isPhoneTrack(_playingSong()),
@@ -126,6 +138,11 @@ class PlayerController extends ChangeNotifier {
   bool get hasTrack => _current != null;
   Song? get current => _current;
   int? get index => _currentIndex;
+
+  /// How many times the user started a track. The queue moving to the next
+  /// song on its own does not change this.
+  int get trackChoice => _trackChoice;
+  Song? get trackChoiceSong => _trackChoiceSong;
   String get queueTitle => _queueTitle;
   bool get playing => _playing;
   bool get shuffleEnabled => _shuffleEnabled;
@@ -160,11 +177,21 @@ class PlayerController extends ChangeNotifier {
     _library = library;
   }
 
+  void bindSettings(SettingsStore store) {
+    _settings = store;
+    if (!kIsWeb || _watchingPageHide) return;
+    _watchingPageHide = true;
+    watchPageHide(() => _rememberPlayback(force: true));
+  }
+
   void attach(SubsonicClient? client) {
     if (identical(_client, client)) return;
     final replacePlayback = _client != null;
     _client = client;
-    if (!replacePlayback) return;
+    if (!replacePlayback) {
+      if (kIsWeb && client != null) unawaited(_restoreWebPlayback());
+      return;
+    }
     _playGeneration++;
     _queue = const [];
     _queueTitle = '';
@@ -180,6 +207,155 @@ class PlayerController extends ChangeNotifier {
     durationListenable.value = Duration.zero;
     _notify();
     _player.stop();
+  }
+
+  /// Loads the last queue after a fresh page. The Tesla browser keeps the
+  /// saved login and drops the player, so this runs once the server is back.
+  Future<void> _restoreWebPlayback() async {
+    _restoring = true;
+    _resumeReady = false;
+    final generation = _playGeneration;
+    PlaybackResume? resume;
+    try {
+      resume = await _pickResume();
+      if (_disposed || generation != _playGeneration || resume == null) return;
+      await _startRestored(resume, generation);
+    } finally {
+      _restoring = false;
+      _resumeReady = true;
+    }
+    if (_disposed) return;
+    if (generation == _playGeneration) {
+      _rememberPlayback(force: true, position: resume.position);
+      return;
+    }
+    if (_queue.isNotEmpty) _rememberPlayback(force: true);
+  }
+
+  Future<PlaybackResume?> _pickResume() async {
+    PlaybackResume? local;
+    try {
+      local = PlaybackResume.decode(await _settings?.loadWebPlayback());
+    } catch (_) {}
+    PlaybackResume? remote;
+    final client = _client;
+    if (client != null) {
+      try {
+        remote = await client.loadPlayQueue();
+      } catch (_) {}
+    }
+    return preferPlaybackResume(local, remote);
+  }
+
+  Future<void> _startRestored(PlaybackResume resume, int generation) async {
+    final songs = resume.songs;
+    final index = resume.currentIndex.clamp(0, songs.length - 1);
+    final song = songs[index];
+    _queue = List<Song>.of(songs);
+    _queueTitle = resume.queueTitle;
+    _currentIndex = index;
+    _current = song;
+    _musicOnly = false;
+    positionListenable.value = resume.position;
+    durationListenable.value = Duration(seconds: song.duration);
+    _notify();
+    await _openWebPlaylist();
+    if (_disposed || generation != _playGeneration) return;
+    final sources = <AudioSource>[
+      for (var i = 0; i < songs.length; i++)
+        _mediaSource(songs[i], i, generation),
+    ];
+    try {
+      await _player.setAudioSources(
+        sources,
+        initialIndex: index,
+        initialPosition: resume.position,
+      );
+    } catch (error) {
+      if (generation == _playGeneration && !_autoplayBlocked(error)) {
+        _setError(_playbackMessage(error));
+      }
+      return;
+    }
+    if (_disposed || generation != _playGeneration) return;
+    _currentIndex = index;
+    _current = song;
+    positionListenable.value = resume.position;
+    try {
+      await _player.play();
+    } catch (error) {
+      if (_autoplayBlocked(error) || generation != _playGeneration) return;
+      _setError(_playbackMessage(error));
+    }
+  }
+
+  List<Song> _resumeSongs() {
+    const maxSongs = 200;
+    if (_queue.length <= maxSongs) return _queue;
+    final index = (_currentIndex ?? 0).clamp(0, _queue.length - 1);
+    var start = index - 20;
+    if (start < 0) start = 0;
+    var end = start + maxSongs;
+    if (end > _queue.length) {
+      end = _queue.length;
+      start = max(0, end - maxSongs);
+    }
+    return _queue.sublist(start, end);
+  }
+
+  void _rememberPlayback({bool force = false, Duration? position}) {
+    if (!kIsWeb ||
+        !_resumeReady ||
+        _restoring ||
+        _disposed ||
+        _switchingMusic) {
+      return;
+    }
+    final current = _current;
+    if (current == null || current.id.startsWith('phone:')) return;
+    final songs = _resumeSongs();
+    final index = songs.indexWhere((song) => song.id == current.id);
+    if (index < 0) return;
+    final now = DateTime.now();
+    if (!force && now.difference(_lastLocalSave) < const Duration(seconds: 5)) {
+      return;
+    }
+    final at = position ?? positionListenable.value;
+    final resume = PlaybackResume(
+      songs: songs,
+      currentIndex: index,
+      position: at < Duration.zero ? Duration.zero : at,
+      savedAt: now,
+      queueTitle: _queueTitle,
+    );
+    _lastLocalSave = now;
+    unawaited(_settings?.saveWebPlayback(resume.encode()));
+    if (!force &&
+        now.difference(_lastServerSave) < const Duration(seconds: 15)) {
+      return;
+    }
+    final client = _client;
+    if (client == null) return;
+    _lastServerSave = now;
+    final positionMs = at.inMilliseconds < 0 ? 0 : at.inMilliseconds;
+    final ids = [for (final song in songs) song.id];
+    final currentId = current.id;
+    unawaited(() async {
+      try {
+        await client.savePlayQueue(
+          ids: ids,
+          currentId: currentId,
+          positionMs: positionMs,
+        );
+      } catch (_) {
+        _lastServerSave = DateTime.fromMillisecondsSinceEpoch(0);
+      }
+    }());
+  }
+
+  bool _autoplayBlocked(Object error) {
+    final text = '$error'.toLowerCase();
+    return text.contains('notallowed') || text.contains('not allowed');
   }
 
   List<Song> get queue => List.unmodifiable(_queue);
@@ -211,6 +387,7 @@ class PlayerController extends ChangeNotifier {
       _queueTitle = queueTitle;
       _currentIndex = safeIndex;
       _current = songs[safeIndex];
+      _noteTrackChoice(songs[safeIndex]);
       positionListenable.value = Duration.zero;
       unawaited(_resolveSibling(songs[safeIndex]));
       _notify();
@@ -225,6 +402,7 @@ class PlayerController extends ChangeNotifier {
     _queueTitle = queueTitle;
     _currentIndex = safeIndex;
     _current = songs[safeIndex];
+    _noteTrackChoice(songs[safeIndex]);
     _musicOnly = false;
     positionListenable.value = Duration.zero;
     durationListenable.value = Duration(seconds: songs[safeIndex].duration);
@@ -502,7 +680,7 @@ class PlayerController extends ChangeNotifier {
       _playGeneration,
       () => _player.seek(position),
       played: _current,
-    );
+    ).whenComplete(() => _rememberPlayback(force: true, position: position));
   }
 
   Future<void> previous() {
@@ -519,7 +697,7 @@ class PlayerController extends ChangeNotifier {
         positionListenable.value = Duration.zero;
         await _player.seek(Duration.zero);
       }
-    }, played: _current);
+    }, played: _current).whenComplete(() => _rememberPlayback(force: true));
   }
 
   Future<void> next() {
@@ -573,6 +751,11 @@ class PlayerController extends ChangeNotifier {
     }
   }
 
+  void _noteTrackChoice(Song song) {
+    _trackChoiceSong = song;
+    _trackChoice++;
+  }
+
   Song? _playingSong() {
     final index = _player.currentIndex;
     if (index != null && index >= 0 && index < _queue.length) {
@@ -588,9 +771,11 @@ class PlayerController extends ChangeNotifier {
     if (state.playing == _playing && state.processingState == _processing) {
       return;
     }
+    final paused = _playing && !state.playing;
     _playing = state.playing;
     _processing = state.processingState;
     _notify();
+    if (paused) _rememberPlayback(force: true);
   }
 
   void _onIndex(int? index) {
@@ -605,6 +790,7 @@ class PlayerController extends ChangeNotifier {
       _musicOnly = false;
       unawaited(_resolveSibling(song));
       _notify();
+      _rememberPlayback(force: true, position: Duration.zero);
     }
   }
 
@@ -700,6 +886,7 @@ class PlayerController extends ChangeNotifier {
     }
     _lastPosition = position;
     positionListenable.value = position;
+    if (_playing) _rememberPlayback();
     final song = _current;
     if (song == null || !_playing) return;
     final key = '$_playGeneration:${song.id}';

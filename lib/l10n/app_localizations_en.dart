@@ -715,4 +715,22 @@ class AppLocalizationsEn extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get homeRecent => 'Recent';
+
+  @override
+  String get homeFavoriteTracks => 'Favorite tracks';
+
+  @override
+  String get noFavoriteTracks => 'No favorite tracks';
+
+  @override
+  String get homeSuggested => 'Suggested';
+
+  @override
+  String get homeSuggestedIdle => 'Play a track to see similar songs.';
+
+  @override
+  String get homePlaylists => 'Playlists';
 }

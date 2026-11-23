@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -8,9 +9,13 @@ import '../state/session_controller.dart';
 import '../widgets/album_card.dart';
 import '../widgets/message_page.dart';
 import 'collection_screen.dart';
+import 'web_home.dart';
 
 class HomeTab extends StatefulWidget {
-  const HomeTab({super.key});
+  const HomeTab({super.key, this.active = false, this.shownTick = 0});
+
+  final bool active;
+  final int shownTick;
 
   @override
   State<HomeTab> createState() => _HomeTabState();
@@ -27,7 +32,18 @@ class _HomeTabState extends State<HomeTab> {
   @override
   void initState() {
     super.initState();
+    if (kIsWeb) return;
     WidgetsBinding.instance.addPostFrameCallback((_) => _load(reset: true));
+  }
+
+  @override
+  void didUpdateWidget(HomeTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (kIsWeb) return;
+    final shownAgain =
+        widget.active &&
+        (!oldWidget.active || widget.shownTick != oldWidget.shownTick);
+    if (shownAgain) _load(reset: true);
   }
 
   Future<void> _load({required bool reset}) async {
@@ -75,6 +91,9 @@ class _HomeTabState extends State<HomeTab> {
 
   @override
   Widget build(BuildContext context) {
+    if (kIsWeb) {
+      return WebHome(active: widget.active, shownTick: widget.shownTick);
+    }
     if (_loading && _albums.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }

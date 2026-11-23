@@ -709,7 +709,7 @@ packages:
   tesla_browser_detector:
     dependency: "direct main"
     description:
-      path: "private/tesla_browser_detector"
+      path: "packages/tesla_browser_detector"
       relative: true
     source: path
     version: "1.0.0"

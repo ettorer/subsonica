@@ -7,6 +7,7 @@ import 'package:just_audio_background/just_audio_background.dart';
 import 'package:provider/provider.dart';
 
 import 'l10n/context_l10n.dart';
+import 'navigation/app_route_observer.dart';
 import 'screens/gate.dart';
 import 'services/settings_store.dart';
 import 'state/downloads.dart';
@@ -24,9 +25,7 @@ import 'util/phone_scan_gate.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   if (!kIsWeb) {
-    await SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-    ]);
+    await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     await JustAudioBackground.init(
       androidNotificationChannelId: 'com.subsonica.subsonica.audio',
       androidNotificationChannelName: 'Playback',
@@ -90,6 +89,7 @@ class _SubsonicaAppState extends State<SubsonicaApp> {
     _player = PlayerController();
     _downloads = DownloadController(_settings);
     _player.bindLibrary(_downloads);
+    _player.bindSettings(_settings);
     _favorites = FavoriteUpdates();
     _playlists = PlaylistUpdates();
     _ratings = RatingUpdates();
@@ -198,6 +198,7 @@ class _SubsonicaAppState extends State<SubsonicaApp> {
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             scaffoldMessengerKey: _messengerKey,
+            navigatorObservers: [appRouteObserver],
             builder: (context, child) {
               final page = child ?? const SizedBox.shrink();
               if (!context.watch<KaraokeController>().active) return page;

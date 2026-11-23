@@ -211,5 +211,11 @@
   "unknownAlbum": "Album sconosciuto",
   "untitledPlaylist": "Playlist senza titolo",
   "trackCount": "{count, plural, =1{1 brano} other{{count} brani}}",
-  "albumCount": "{count, plural, =1{1 album} other{{count} album}}"
+  "albumCount": "{count, plural, =1{1 album} other{{count} album}}",
+  "homeRecent": "Recenti",
+  "homeFavoriteTracks": "Brani preferiti",
+  "noFavoriteTracks": "Nessun brano preferito",
+  "homeSuggested": "Suggeriti",
+  "homeSuggestedIdle": "Riproduci un brano per vedere brani simili.",
+  "homePlaylists": "Playlist"
 }
