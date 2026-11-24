@@ -5,6 +5,7 @@ class Song {
     required this.artist,
     required this.album,
     this.albumId,
+    this.artistId,
     this.coverArt,
     this.track,
     this.disc,
@@ -20,6 +21,7 @@ class Song {
   final String artist;
   final String album;
   final String? albumId;
+  final String? artistId;
   final String? coverArt;
   final int? track;
   final int? disc;

@@ -13,17 +13,22 @@ import '../util/music_only.dart';
 import '../widgets/album_card.dart';
 import '../widgets/choice_menu.dart';
 import '../widgets/message_page.dart';
-import '../widgets/mini_player.dart';
 import '../widgets/playlist_button.dart';
+import '../widgets/shell_playback_bar.dart';
 import 'collection_screen.dart';
 import 'queue_screen.dart';
 
-void openArtist(BuildContext context, Artist artist) {
-  Navigator.of(context).push(
-    MaterialPageRoute<void>(
-      builder: (_) => ArtistScreen(artistId: artist.id, name: artist.name),
-    ),
+String artistRouteName(String artistId) => 'artist:$artistId';
+
+MaterialPageRoute<void> artistPageRoute(Artist artist) {
+  return MaterialPageRoute<void>(
+    settings: RouteSettings(name: artistRouteName(artist.id)),
+    builder: (_) => ArtistScreen(artistId: artist.id, name: artist.name),
   );
+}
+
+void openArtist(BuildContext context, Artist artist) {
+  Navigator.of(context).push(artistPageRoute(artist));
 }
 
 class ArtistScreen extends StatefulWidget {
@@ -220,7 +225,7 @@ class _ArtistScreenState extends State<ArtistScreen> {
       body: Column(
         children: [
           Expanded(child: _body(artist)),
-          const MiniPlayerSlot(),
+          ShellPlaybackBar(onTrackTap: (song) => openSongAlbum(context, song)),
         ],
       ),
     );

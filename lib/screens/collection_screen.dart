@@ -19,6 +19,7 @@ import '../widgets/collection_actions.dart';
 import '../widgets/cover_image.dart';
 import '../widgets/message_page.dart';
 import '../widgets/mini_player.dart';
+import '../widgets/shell_playback_bar.dart';
 import '../widgets/song_tile.dart';
 
 enum CollectionKind { album, playlist, genre }
@@ -399,8 +400,8 @@ class _CollectionScreenState extends State<CollectionScreen> {
                     ),
                   ),
                 ),
-                MiniPlayerSlot(
-                  transport: kIsWeb && widget.kind != CollectionKind.genre,
+                ShellPlaybackBar(
+                  onTrackTap: (song) => openSongAlbum(context, song),
                 ),
               ],
             ),

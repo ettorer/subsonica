@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../l10n/context_l10n.dart';
 import '../models/download.dart';
 import '../models/library.dart';
+import '../screens/artist_screen.dart';
 import '../screens/collection_screen.dart';
 import '../services/subsonic_api.dart';
 import '../state/downloads.dart';
@@ -12,6 +13,7 @@ import '../state/player_controller.dart';
 import '../state/rating_updates.dart';
 import '../state/session_controller.dart';
 import '../theme/app_colors.dart';
+import '../widgets/choice_menu.dart';
 import '../widgets/rating_bar.dart';
 import '../widgets/playlist_button.dart';
 
@@ -43,6 +45,7 @@ class _PlaybackSpeedSheetState extends State<PlaybackSpeedSheet> {
   static const _valueWidth = 44.0;
   double? _drag;
   var _startingRadio = false;
+  var _findingArtist = false;
   String? _radioMessage;
 
   @override
@@ -192,6 +195,20 @@ class _PlaybackSpeedSheetState extends State<PlaybackSpeedSheet> {
               title: Text(l10n.showAlbum),
               onTap: () => _showAlbum(albumSong),
             ),
+            const Divider(height: 1, color: AppColors.outline),
+            ListTile(
+              contentPadding: const EdgeInsets.only(left: 8, right: 8),
+              enabled: !_findingArtist,
+              leading: _findingArtist
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2.4),
+                    )
+                  : const Icon(Icons.person_rounded),
+              title: Text(l10n.showArtist),
+              onTap: _findingArtist ? null : () => _showArtist(albumSong),
+            ),
           ],
           if (kIsWeb && song != null) ...[
             const Divider(height: 1, color: AppColors.outline),
@@ -302,6 +319,75 @@ class _PlaybackSpeedSheetState extends State<PlaybackSpeedSheet> {
   void _snack(String message) {
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _showArtist(Song song) async {
+    final l10n = context.l10n;
+    final artistId = song.artistId?.trim();
+    if (artistId != null && artistId.isNotEmpty) {
+      _openArtistPage(Artist(id: artistId, name: song.artist));
+      return;
+    }
+    final name = song.artist.trim();
+    if (name.isEmpty) {
+      _snack(l10n.artistNotFound);
+      return;
+    }
+    final client = context.read<SessionController>().client;
+    if (client == null) {
+      _snack(l10n.connectToOpen);
+      return;
+    }
+    setState(() => _findingArtist = true);
+    try {
+      final result = await client.search(name);
+      if (!mounted) return;
+      final artists = result.artists;
+      if (artists.isEmpty) {
+        setState(() => _findingArtist = false);
+        _snack(l10n.artistNotFound);
+        return;
+      }
+      final lowered = name.toLowerCase();
+      final exact = [
+        for (final artist in artists)
+          if (artist.name.toLowerCase() == lowered) artist,
+      ];
+      final matches = exact.isNotEmpty ? exact : artists;
+      if (matches.length == 1) {
+        setState(() => _findingArtist = false);
+        _openArtistPage(matches.first);
+        return;
+      }
+      final value = await showChoiceMenu(context, [
+        for (final artist in matches)
+          MenuChoice(
+            value: artist.id,
+            icon: Icons.person_rounded,
+            label: artist.name,
+          ),
+      ]);
+      if (!mounted) return;
+      setState(() => _findingArtist = false);
+      if (value == null) return;
+      _openArtistPage(matches.firstWhere((artist) => artist.id == value));
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _findingArtist = false);
+      _snack(localizeMessage(l10n, describeError(error)));
+    }
+  }
+
+  void _openArtistPage(Artist artist) {
+    final navigator = Navigator.of(context);
+    navigator.pop();
+    var already = false;
+    navigator.popUntil((route) {
+      already = route.settings.name == artistRouteName(artist.id);
+      return true;
+    });
+    if (already) return;
+    navigator.push(artistPageRoute(artist));
   }
 
   void _showAlbum(Song song) {

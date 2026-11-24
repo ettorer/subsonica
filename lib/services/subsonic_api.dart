@@ -168,6 +168,7 @@ Song? tryParseSong(Map<String, dynamic> json) {
     artist: artist.isEmpty ? 'Unknown artist' : artist,
     album: asString(json['album']).trim(),
     albumId: _optionalString(json['albumId']),
+    artistId: _optionalString(json['artistId']),
     coverArt: _optionalString(json['coverArt']),
     track: positiveInt(json['track']),
     disc: positiveInt(json['discNumber']),

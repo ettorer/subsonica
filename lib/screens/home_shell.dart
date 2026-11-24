@@ -9,6 +9,7 @@ import '../models/library.dart';
 import '../navigation/app_route_observer.dart';
 import '../theme/app_colors.dart';
 import '../state/downloads.dart';
+import '../state/library_tabs.dart';
 import '../state/player_controller.dart';
 import '../state/session_controller.dart';
 import '../widgets/choice_menu.dart';
@@ -38,18 +39,36 @@ class _HomeShellState extends State<HomeShell> with RouteAware {
   final _search = TextEditingController();
   final _searchFocus = FocusNode();
   Timer? _debounce;
-  var _tab = 0;
   var _offlineTab = 0;
   var _shownTick = 0;
   var _query = '';
   var _submittedQuery = '';
   List<Song> _trackSongs = const [];
 
+  LibraryTabs? _libraryTabs;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final route = ModalRoute.of(context);
     if (route != null) appRouteObserver.subscribe(this, route);
+    final tabs = context.read<LibraryTabs>();
+    if (tabs != _libraryTabs) {
+      _libraryTabs?.removeListener(_onLibraryTabs);
+      _libraryTabs = tabs;
+      _libraryTabs!.addListener(_onLibraryTabs);
+    }
+  }
+
+  void _onLibraryTabs() {
+    if (!mounted) return;
+    _debounce?.cancel();
+    _searchFocus.unfocus();
+    _search.clear();
+    setState(() {
+      _query = '';
+      _submittedQuery = '';
+    });
   }
 
   @override
@@ -60,6 +79,7 @@ class _HomeShellState extends State<HomeShell> with RouteAware {
   @override
   void dispose() {
     appRouteObserver.unsubscribe(this);
+    _libraryTabs?.removeListener(_onLibraryTabs);
     _debounce?.cancel();
     _search.dispose();
     _searchFocus.dispose();
@@ -101,83 +121,88 @@ class _HomeShellState extends State<HomeShell> with RouteAware {
     final tabs = offline
         ? LibraryTabBar.offlineItems(l10n)
         : LibraryTabBar.onlineItems(l10n);
+    final tab = context.watch<LibraryTabs>().index;
+    final hideTopBar = kIsWeb && tab == 0 && !offline;
+    final optionsButton = IconButton(
+      tooltip: l10n.options,
+      onPressed: () => _openMenu(offline, searching),
+      icon: const Icon(Icons.more_vert, color: AppColors.text),
+    );
     return Scaffold(
       body: Column(
         children: [
-          SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: offline
-                        ? Align(
-                            alignment: Alignment.centerLeft,
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
+          if (!hideTopBar)
+            SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+                child: Row(
+                  children: [
+                    if (offline)
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: Text(
+                              l10n.offlineLabel,
+                              style: const TextStyle(
+                                color: AppColors.accent,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 18,
                               ),
-                              child: Text(
-                                l10n.offlineLabel,
-                                style: const TextStyle(
-                                  color: AppColors.accent,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 18,
-                                ),
-                              ),
-                            ),
-                          )
-                        : TextField(
-                            controller: _search,
-                            focusNode: _searchFocus,
-                            textInputAction: TextInputAction.search,
-                            onTapOutside: (_) => _searchFocus.unfocus(),
-                            onChanged: _onSearchChanged,
-                            onSubmitted: (value) {
-                              _debounce?.cancel();
-                              setState(() {
-                                _query = value;
-                                _submittedQuery = value.trim();
-                              });
-                            },
-                            decoration: InputDecoration(
-                              hintText: l10n.search,
-                              prefixIcon: const Icon(
-                                Icons.search,
-                                color: AppColors.muted,
-                              ),
-                              suffixIcon: _query.isEmpty
-                                  ? null
-                                  : IconButton(
-                                      tooltip: l10n.clear,
-                                      onPressed: _clearSearch,
-                                      icon: const Icon(
-                                        Icons.close,
-                                        color: AppColors.muted,
-                                      ),
-                                    ),
-                              filled: true,
-                              fillColor: AppColors.surface,
-                              isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(
-                                vertical: 12,
-                              ),
-                              border: _searchBorder(focused: false),
-                              enabledBorder: _searchBorder(focused: false),
-                              focusedBorder: _searchBorder(focused: true),
                             ),
                           ),
-                  ),
-                  IconButton(
-                    tooltip: l10n.options,
-                    onPressed: () => _openMenu(offline, searching),
-                    icon: const Icon(Icons.more_vert, color: AppColors.text),
-                  ),
-                ],
+                        ),
+                      )
+                    else
+                      Expanded(
+                        child: TextField(
+                          controller: _search,
+                          focusNode: _searchFocus,
+                          textInputAction: TextInputAction.search,
+                          onTapOutside: (_) => _searchFocus.unfocus(),
+                          onChanged: _onSearchChanged,
+                          onSubmitted: (value) {
+                            _debounce?.cancel();
+                            setState(() {
+                              _query = value;
+                              _submittedQuery = value.trim();
+                            });
+                          },
+                          decoration: InputDecoration(
+                            hintText: l10n.search,
+                            prefixIcon: const Icon(
+                              Icons.search,
+                              color: AppColors.muted,
+                            ),
+                            suffixIcon: _query.isEmpty
+                                ? null
+                                : IconButton(
+                                    tooltip: l10n.clear,
+                                    onPressed: _clearSearch,
+                                    icon: const Icon(
+                                      Icons.close,
+                                      color: AppColors.muted,
+                                    ),
+                                  ),
+                            filled: true,
+                            fillColor: AppColors.surface,
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 12,
+                            ),
+                            border: _searchBorder(focused: false),
+                            enabledBorder: _searchBorder(focused: false),
+                            focusedBorder: _searchBorder(focused: true),
+                          ),
+                        ),
+                      ),
+                    optionsButton,
+                  ],
+                ),
               ),
             ),
-          ),
           Expanded(
             child: Stack(
               fit: StackFit.expand,
@@ -187,10 +212,10 @@ class _HomeShellState extends State<HomeShell> with RouteAware {
                   child: offline
                       ? OfflineLibrary(tab: _offlineTab)
                       : IndexedStack(
-                          index: _tab,
+                          index: tab,
                           children: [
                             HomeTab(
-                              active: _tab == 0 && !searching,
+                              active: tab == 0 && !searching,
                               shownTick: _shownTick,
                             ),
                             const AlbumsTab(),
@@ -217,8 +242,9 @@ class _HomeShellState extends State<HomeShell> with RouteAware {
                   onTrackTap: (song) => openSongAlbum(context, song),
                 ),
                 LibraryTabBar(
-                  index: offline ? _offlineTab : _tab,
+                  index: offline ? _offlineTab : tab,
                   items: tabs,
+                  trailing: hideTopBar ? optionsButton : null,
                   onSelected: (index) {
                     _debounce?.cancel();
                     _searchFocus.unfocus();
@@ -228,10 +254,11 @@ class _HomeShellState extends State<HomeShell> with RouteAware {
                       _submittedQuery = '';
                       if (offline) {
                         _offlineTab = index;
-                      } else {
-                        _tab = index;
                       }
                     });
+                    if (!offline) {
+                      context.read<LibraryTabs>().select(index);
+                    }
                   },
                 ),
               ],
@@ -250,7 +277,7 @@ class _HomeShellState extends State<HomeShell> with RouteAware {
   Future<void> _openMenu(bool offline, bool searching) async {
     final l10n = context.l10n;
     final value = await showChoiceMenu(context, [
-      if (_tab == 2 && !offline && !searching) ...[
+      if (context.read<LibraryTabs>().index == 2 && !offline && !searching) ...[
         MenuChoice(
           value: 'track-play-all',
           icon: Icons.play_arrow_rounded,

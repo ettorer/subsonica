@@ -432,6 +432,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get showAlbum => 'Show album page';
 
   @override
+  String get showArtist => 'Show artist';
+
+  @override
   String get cancelDownload => 'Cancel download';
 
   @override

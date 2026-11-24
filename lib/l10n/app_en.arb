@@ -138,6 +138,7 @@
   "favorite": "Favorite",
   "addToQueue": "Add to play queue",
   "showAlbum": "Show album page",
+  "showArtist": "Show artist",
   "cancelDownload": "Cancel download",
   "download": "Download",
   "connectToDownload": "Connect to download tracks.",

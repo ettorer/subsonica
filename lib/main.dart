@@ -13,6 +13,7 @@ import 'services/settings_store.dart';
 import 'state/downloads.dart';
 import 'state/favorite_updates.dart';
 import 'state/karaoke.dart';
+import 'state/library_tabs.dart';
 import 'state/locale_controller.dart';
 import 'state/player_controller.dart';
 import 'state/playlist_updates.dart';
@@ -187,6 +188,7 @@ class _SubsonicaAppState extends State<SubsonicaApp> {
         ChangeNotifierProvider<PlaylistUpdates>.value(value: _playlists),
         ChangeNotifierProvider<RatingUpdates>.value(value: _ratings),
         ChangeNotifierProvider<KaraokeController>.value(value: _karaoke),
+        ChangeNotifierProvider(create: (_) => LibraryTabs()),
       ],
       child: Builder(
         builder: (context) {

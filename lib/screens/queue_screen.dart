@@ -6,27 +6,22 @@ import '../models/library.dart';
 import '../state/player_controller.dart';
 import '../theme/app_colors.dart';
 import '../widgets/message_page.dart';
-import '../widgets/mini_player.dart';
+import '../widgets/shell_playback_bar.dart';
 import '../widgets/song_tile.dart';
+import 'collection_screen.dart';
 
 void openPlayQueue(BuildContext context) {
-  Navigator.of(context).push(
-    MaterialPageRoute<void>(builder: (_) => const QueueScreen()),
-  );
+  Navigator.of(context)
+      .push(MaterialPageRoute<void>(builder: (_) => const QueueScreen()));
 }
 
-Future<void> addSongsToPlayQueue(
-  BuildContext context,
-  List<Song> songs,
-) async {
+Future<void> addSongsToPlayQueue(BuildContext context, List<Song> songs) async {
   if (songs.isEmpty) return;
   await context.read<PlayerController>().appendSongs(songs);
   if (!context.mounted) return;
   final count = songs.length;
   final l10n = context.l10n;
-  final text = count == 1
-      ? l10n.addedToQueue
-      : l10n.addedTracksToQueue(count);
+  final text = count == 1 ? l10n.addedToQueue : l10n.addedTracksToQueue(count);
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       content: Text(text),
@@ -73,7 +68,7 @@ class QueueScreen extends StatelessWidget {
                     ],
                   ),
           ),
-          const MiniPlayerSlot(),
+          ShellPlaybackBar(onTrackTap: (song) => openSongAlbum(context, song)),
         ],
       ),
     );

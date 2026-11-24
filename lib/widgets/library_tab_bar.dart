@@ -9,11 +9,13 @@ class LibraryTabBar extends StatelessWidget {
     required this.index,
     required this.onSelected,
     required this.items,
+    this.trailing,
   });
 
   final int index;
   final ValueChanged<int> onSelected;
   final List<(IconData, IconData, String)> items;
+  final Widget? trailing;
 
   static List<(IconData, IconData, String)> onlineItems(AppLocalizations l10n) {
     return [
@@ -22,7 +24,9 @@ class LibraryTabBar extends StatelessWidget {
     ];
   }
 
-  static List<(IconData, IconData, String)> offlineItems(AppLocalizations l10n) {
+  static List<(IconData, IconData, String)> offlineItems(
+    AppLocalizations l10n,
+  ) {
     return [
       (Icons.album_outlined, Icons.album_rounded, l10n.tabAlbum),
       (Icons.person_outline_rounded, Icons.person_rounded, l10n.tabArtist),
@@ -67,6 +71,7 @@ class LibraryTabBar extends StatelessWidget {
                   onTap: () => onSelected(i),
                 ),
               ),
+            ?trailing,
           ],
         ),
       ),

@@ -884,6 +884,12 @@ abstract class AppLocalizations {
   /// **'Show album page'**
   String get showAlbum;
 
+  /// No description provided for @showArtist.
+  ///
+  /// In en, this message translates to:
+  /// **'Show artist'**
+  String get showArtist;
+
   /// No description provided for @cancelDownload.
   ///
   /// In en, this message translates to:
